@@ -1,0 +1,491 @@
+{
+  "version": 1,
+  "generatedBy": "MedIntel Nexus demo OCR cache",
+  "prescriptions": [
+    {
+      "id": "rx_amoxicillin",
+      "title": "Prescription \u00b7 Amoxicillin course",
+      "match": {
+        "fileNames": [
+          "rx_amoxicillin.png"
+        ],
+        "stems": [
+          "rx_amoxicillin",
+          "amoxicillin"
+        ],
+        "sha256": "ecb513dbf0588fe0d9df4b1beae70f88b4cbe6a1916158fb5cbac4dd7f090601",
+        "sizeBytes": 39866
+      },
+      "confidence": 0.93,
+      "summary": "Short antibiotic course for a bacterial infection with symptomatic fever relief.",
+      "medicines": [
+        {
+          "name": "Amoxicillin",
+          "strength": "500 mg",
+          "dosageLine": "1 capsule \u00b7 3 times a day \u00b7 7 days \u00b7 After food",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.94
+        },
+        {
+          "name": "Paracetamol",
+          "strength": "650 mg",
+          "dosageLine": "1 tablet \u00b7 up to 3 times a day \u00b7 For fever",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.9
+        }
+      ],
+      "riskAnalysis": [
+        "No major drug-drug interactions detected between the prescribed medicines.",
+        "Amoxicillin: do NOT take if there is a known penicillin allergy."
+      ],
+      "insights": [
+        "Complete the full 7-day antibiotic course even if you feel better.",
+        "Take Amoxicillin with food to reduce stomach upset.",
+        "Stop and seek care immediately if you notice rash, swelling, or difficulty breathing."
+      ]
+    },
+    {
+      "id": "rx_metformin",
+      "title": "Prescription \u00b7 Diabetes management",
+      "match": {
+        "fileNames": [
+          "rx_metformin.png"
+        ],
+        "stems": [
+          "rx_metformin",
+          "metformin"
+        ],
+        "sha256": "6dff4903f0eb31dcb03746b5f6dcb0b266d28008c1eb89edd571d9d9dd88f364",
+        "sizeBytes": 37403
+      },
+      "confidence": 0.9,
+      "summary": "Type 2 diabetes management with combined oral hypoglycaemic agents.",
+      "medicines": [
+        {
+          "name": "Metformin",
+          "strength": "500 mg",
+          "dosageLine": "1 tablet \u00b7 2 times a day \u00b7 With meals",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.95
+        },
+        {
+          "name": "Glimepiride",
+          "strength": "1 mg",
+          "dosageLine": "1 tablet \u00b7 once daily \u00b7 Before breakfast",
+          "risk": "moderate",
+          "riskNote": "Risk of low blood sugar - watch for dizziness, sweating or confusion.",
+          "confidence": 0.8
+        }
+      ],
+      "riskAnalysis": [
+        "Glimepiride + Metformin together increase the risk of hypoglycaemia - monitor blood glucose.",
+        "Avoid alcohol; it can amplify low blood-sugar episodes."
+      ],
+      "insights": [
+        "Check fasting blood sugar regularly and log the readings.",
+        "Carry a fast-acting sugar source (glucose / juice) for hypoglycaemia.",
+        "Pair medication with a consistent diet and light daily exercise."
+      ]
+    },
+    {
+      "id": "rx_amlodipine",
+      "title": "Prescription \u00b7 Hypertension",
+      "match": {
+        "fileNames": [
+          "rx_amlodipine.png"
+        ],
+        "stems": [
+          "rx_amlodipine",
+          "amlodipine"
+        ],
+        "sha256": "77f7a8018cd235f27b59e813b25015b475ec5d6d28b4a12015a00101674ad608",
+        "sizeBytes": 37352
+      },
+      "confidence": 0.9,
+      "summary": "Blood-pressure control with a calcium-channel blocker and a beta-blocker.",
+      "medicines": [
+        {
+          "name": "Amlodipine",
+          "strength": "5 mg",
+          "dosageLine": "1 tablet \u00b7 once daily \u00b7 Morning",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.93
+        },
+        {
+          "name": "Atenolol",
+          "strength": "25 mg",
+          "dosageLine": "1 tablet \u00b7 once daily",
+          "risk": "moderate",
+          "riskNote": "May lower heart rate - report unusual fatigue or fainting.",
+          "confidence": 0.78
+        }
+      ],
+      "riskAnalysis": [
+        "Combined antihypertensives cause additive blood-pressure lowering - rise slowly from sitting/lying.",
+        "Amlodipine can cause ankle swelling - monitor and report if marked."
+      ],
+      "insights": [
+        "Take both medicines at the same time each day.",
+        "Reduce dietary salt and processed foods.",
+        "Measure blood pressure at home at least twice a week."
+      ]
+    },
+    {
+      "id": "rx_levothyroxine",
+      "title": "Prescription \u00b7 Hypothyroidism",
+      "match": {
+        "fileNames": [
+          "rx_levothyroxine.png"
+        ],
+        "stems": [
+          "rx_levothyroxine",
+          "levothyroxine"
+        ],
+        "sha256": "1ae09519ff72a6805fe3cff9e38c5c19a8c1654ff73a04c3ea94c222cecd8a32",
+        "sizeBytes": 31200
+      },
+      "confidence": 0.91,
+      "summary": "Thyroid hormone replacement for hypothyroidism.",
+      "medicines": [
+        {
+          "name": "Levothyroxine",
+          "strength": "50 mcg",
+          "dosageLine": "1 tablet \u00b7 once daily \u00b7 Empty stomach, morning",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.92
+        }
+      ],
+      "riskAnalysis": [
+        "Take on an empty stomach 30-60 minutes before breakfast for proper absorption.",
+        "Separate from calcium or iron supplements by at least 4 hours."
+      ],
+      "insights": [
+        "Do not skip doses - thyroid levels need a steady supply.",
+        "Re-test TSH in 6-8 weeks and adjust dose with your doctor.",
+        "Tell your doctor about any new supplements or medicines."
+      ]
+    },
+    {
+      "id": "rx_atorvastatin",
+      "title": "Prescription \u00b7 Cardiac / cholesterol",
+      "match": {
+        "fileNames": [
+          "rx_atorvastatin.png"
+        ],
+        "stems": [
+          "rx_atorvastatin",
+          "atorvastatin"
+        ],
+        "sha256": "df740e7863ce9a797baba7f4b1bc23fbde18447b134df6bb7d3e1d41e9446373",
+        "sizeBytes": 38161
+      },
+      "confidence": 0.92,
+      "summary": "Secondary cardiac prevention with a statin and low-dose aspirin.",
+      "medicines": [
+        {
+          "name": "Atorvastatin",
+          "strength": "20 mg",
+          "dosageLine": "1 tablet \u00b7 once daily \u00b7 At night",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.94
+        },
+        {
+          "name": "Aspirin",
+          "strength": "75 mg",
+          "dosageLine": "1 tablet \u00b7 once daily \u00b7 After food",
+          "risk": "moderate",
+          "riskNote": "Increased bleeding risk - report black stools or easy bruising.",
+          "confidence": 0.82
+        }
+      ],
+      "riskAnalysis": [
+        "Statin + aspirin is common in cardiac care, but watch for muscle pain and bleeding.",
+        "Report unexplained muscle aches or weakness (possible statin myopathy)."
+      ],
+      "insights": [
+        "Take the statin at night for best cholesterol-lowering effect.",
+        "Avoid grapefruit juice while on atorvastatin.",
+        "Get a fasting lipid panel in 8-12 weeks."
+      ]
+    },
+    {
+      "id": "rx_parkinson_skandha",
+      "title": "Prescription \u00b7 Parkinson's & Hypothyroidism",
+      "match": {
+        "fileNames": [],
+        "stems": [
+          "rx_parkinson",
+          "rx_parkinson_skandha",
+          "parkinson",
+          "thiru_lakshmi",
+          "thirulamasi"
+        ],
+        "sha256": null,
+        "sizeBytes": null
+      },
+      "confidence": 0.88,
+      "summary": "Parkinson's disease management with anticholinergic therapy, neuroprotection, and symptom relief for a 96-year-old female with choreatheto sis and postural vertigo. Secondary hypothyroidism noted.",
+      "medicines": [
+        {
+          "name": "Buparlentone",
+          "strength": "16 mg",
+          "dosageLine": "1 tablet \u00b7 Morning only \u00b7 10 days",
+          "risk": "moderate",
+          "riskNote": "Anticholinergic agent \u2014 may cause dry mouth, blurred vision, or confusion in elderly patients.",
+          "confidence": 0.82
+        },
+        {
+          "name": "Renovation Plus",
+          "strength": "",
+          "dosageLine": "1 tablet \u00b7 Morning only \u00b7 15 days",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.9
+        },
+        {
+          "name": "Strocit MD",
+          "strength": "",
+          "dosageLine": "1 tablet \u00b7 At night \u00b7 10 days",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.84
+        }
+      ],
+      "riskAnalysis": [
+        "Buparlentone (anticholinergic) in a 96-year-old carries high fall and confusion risk \u2014 monitor closely.",
+        "Choreatheto sis combined with postural vertigo significantly raises fall risk; ensure supervised ambulation.",
+        "Hypothyroidism noted in diagnosis \u2014 confirm thyroid hormone replacement is current and adequate."
+      ],
+      "insights": [
+        "Take Buparlentone in the morning to reduce night-time confusion risk in elderly patients.",
+        "Strocit MD (Citicoline) supports neuroprotection \u2014 consistent daily dosing is important.",
+        "Report any increase in involuntary movements, dizziness, or confusion immediately.",
+        "Ensure regular thyroid function tests given the co-existing hypothyroidism diagnosis."
+      ]
+    },
+    {
+      "id": "rx_sudhargan_infection",
+      "title": "Prescription \u00b7 Infection & Wound Care",
+      "match": {
+        "fileNames": [],
+        "stems": [
+          "rx_sudhargan",
+          "sudhargan",
+          "sudhargan_infection"
+        ],
+        "sha256": null,
+        "sizeBytes": null
+      },
+      "confidence": 0.91,
+      "summary": "Acute infection management with broad-spectrum antibiotic, gastroprotection, probiotic, and analgesic. Tetanus prophylaxis administered. Possible wound infection given Mupirocin ointment and TT injection.",
+      "medicines": [
+        {
+          "name": "Gento X CV",
+          "strength": "625 mg",
+          "dosageLine": "1 tablet \u00b7 3 times a day \u00b7 10 days \u00b7 With food",
+          "risk": "moderate",
+          "riskNote": "Amoxicillin-Clavulanate \u2014 do NOT take if allergic to penicillin. May cause diarrhoea.",
+          "confidence": 0.92
+        },
+        {
+          "name": "B-Zole DSR",
+          "strength": "",
+          "dosageLine": "1 tablet \u00b7 Morning & night \u00b7 6 days \u00b7 Before food",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.89
+        },
+        {
+          "name": "Preprobio TR",
+          "strength": "",
+          "dosageLine": "1 capsule \u00b7 Morning & night \u00b7 6 days",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.78
+        },
+        {
+          "name": "Acendat P",
+          "strength": "",
+          "dosageLine": "1 tablet \u00b7 Morning & night \u00b7 4 days \u00b7 After food",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.85
+        },
+        {
+          "name": "Mupiap Ointment",
+          "strength": "",
+          "dosageLine": "Apply topically \u00b7 External use only",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.88
+        },
+        {
+          "name": "Inj. TT",
+          "strength": "0.5 cc",
+          "dosageLine": "IM injection \u00b7 Stat (one-time)",
+          "risk": "none",
+          "riskNote": null,
+          "confidence": 0.95
+        },
+        {
+          "name": "Linezolid",
+          "strength": "600 mg",
+          "dosageLine": "As directed",
+          "risk": "severe",
+          "riskNote": "Reserved antibiotic \u2014 do not skip doses. May cause serotonin syndrome if taken with certain antidepressants.",
+          "confidence": 0.87
+        }
+      ],
+      "riskAnalysis": [
+        "Gento X CV (Amoxicillin-Clavulanate) + Linezolid dual antibiotic therapy \u2014 high infection severity indicated; complete full course.",
+        "Linezolid is a reserve antibiotic \u2014 avoid tyramine-rich foods (aged cheese, cured meats) during course.",
+        "Monitor for diarrhoea; the probiotic (Preprobio TR) is prescribed to protect gut flora during antibiotic therapy."
+      ],
+      "insights": [
+        "Complete the FULL antibiotic course even if symptoms improve \u2014 stopping early can cause resistance.",
+        "Apply Mupiap (Mupirocin) ointment to the wound site twice daily after cleaning.",
+        "Take Gento X CV with food to reduce stomach side-effects.",
+        "The Tetanus Toxoid injection provides immediate protection \u2014 no action needed from your side.",
+        "Return immediately if fever worsens, wound spreads, or you notice any rash or difficulty breathing."
+      ]
+    },
+    {
+      "id": "lab_tamilarasi_20260205",
+      "title": "Lab Panel \u00b7 Lipid, CBC & Thyroid (05 Feb 2026)",
+      "match": {
+        "fileNames": [
+          "report-250000514125417_mrs.tamilarasik_05feb2026_062100.pdf"
+        ],
+        "stems": [
+          "report-250000514125417_mrs.tamilarasik_05feb2026_062100",
+          "tamilarasi_lab_report"
+        ],
+        "sha256": "81bcfd36db11cb24682598ba01c67a99690acdd1b748e3f62aea3a206e6789c1",
+        "sizeBytes": 115087
+      },
+      "confidence": 0.97,
+      "summary": "Fasting lipid profile, complete blood count with ESR, and thyroid panel for a 58-year-old woman. Most results are within normal limits. Two findings stand out and warrant a doctor's review: the thyroid-stimulating hormone (TSH) is clearly raised at 9.34 (normal 0.54\u20135.3) while FT3 and FT4 are normal \u2014 a pattern consistent with subclinical hypothyroidism \u2014 and serum uric acid is high at 7.0 (normal 2.4\u20135.7). Cholesterol is well controlled overall, with LDL only mildly above the optimal target.",
+      "medicines": [],
+      "riskAnalysis": [
+        "TSH high at 9.34 \u00b5IU/mL (ref 0.54\u20135.3) with normal FT3 (2.41) and FT4 (1.15) \u2014 pattern of subclinical hypothyroidism; an underactive thyroid that may need monitoring or treatment.",
+        "Uric Acid high at 7.0 mg/dL (ref 2.4\u20135.7) \u2014 hyperuricemia, which raises the risk of gout and kidney stones.",
+        "LDL Cholesterol 119 mg/dL (optimal <100) and Non-HDL 145.6 mg/dL (optimal <130) are mildly above optimal targets.",
+        "MCHC slightly low at 30.9 gm/dL (ref 31.5\u201334.5) and absolute monocytes slightly low at 187 cells/cu.mm (ref 200\u20131000) \u2014 minor, generally not significant in isolation.",
+        "ESR is at the upper end of normal (18 mm/hr, ref 5\u201320); blood count is otherwise unremarkable with normal haemoglobin and platelets."
+      ],
+      "insights": [
+        "Share this report with your doctor \u2014 the raised TSH most likely needs a repeat thyroid test and a clinical review to decide if treatment is required.",
+        "The high uric acid can often be helped by staying well hydrated and reducing red meat, organ meats, shellfish, alcohol and sugary drinks; your doctor may check kidney function.",
+        "Lipids are largely well controlled; keeping up a heart-healthy diet and regular activity should help bring LDL fully into the optimal range.",
+        "Overall blood count is reassuring \u2014 normal haemoglobin, white cells and platelets, with no sign of anaemia or infection.",
+        "This is informational only and not a diagnosis; please confirm all findings and next steps with your physician."
+      ],
+      "metrics": [
+        {
+          "label": "Total Cholesterol",
+          "value": 187,
+          "unit": "mg/dL",
+          "refLow": 0,
+          "refHigh": 200
+        },
+        {
+          "label": "Triglycerides",
+          "value": 132,
+          "unit": "mg/dL",
+          "refLow": 0,
+          "refHigh": 150
+        },
+        {
+          "label": "HDL Cholesterol",
+          "value": 41.4,
+          "unit": "mg/dL",
+          "refLow": 40,
+          "refHigh": 1000000000000.0
+        },
+        {
+          "label": "LDL Cholesterol",
+          "value": 119,
+          "unit": "mg/dL",
+          "refLow": 0,
+          "refHigh": 100
+        },
+        {
+          "label": "Non-HDL Cholesterol",
+          "value": 145.6,
+          "unit": "mg/dL",
+          "refLow": 0,
+          "refHigh": 130
+        },
+        {
+          "label": "Uric Acid",
+          "value": 7.0,
+          "unit": "mg/dL",
+          "refLow": 2.4,
+          "refHigh": 5.7
+        },
+        {
+          "label": "Haemoglobin",
+          "value": 13.4,
+          "unit": "gm/dL",
+          "refLow": 12.0,
+          "refHigh": 15.0
+        },
+        {
+          "label": "WBC Count",
+          "value": 6230,
+          "unit": "cells/cu.mm",
+          "refLow": 4000,
+          "refHigh": 11000
+        },
+        {
+          "label": "MCHC",
+          "value": 30.9,
+          "unit": "gm/dL",
+          "refLow": 31.5,
+          "refHigh": 34.5
+        },
+        {
+          "label": "Platelet Count",
+          "value": 291,
+          "unit": "10^3/uL",
+          "refLow": 150,
+          "refHigh": 450
+        },
+        {
+          "label": "ESR",
+          "value": 18,
+          "unit": "mm/hr",
+          "refLow": 5,
+          "refHigh": 20
+        },
+        {
+          "label": "FT3",
+          "value": 2.41,
+          "unit": "pg/mL",
+          "refLow": 2.0,
+          "refHigh": 4.4
+        },
+        {
+          "label": "FT4",
+          "value": 1.15,
+          "unit": "ng/dL",
+          "refLow": 0.93,
+          "refHigh": 1.7
+        },
+        {
+          "label": "TSH",
+          "value": 9.34,
+          "unit": "uIU/mL",
+          "refLow": 0.54,
+          "refHigh": 5.3
+        }
+      ]
+    }
+  ]
+}
