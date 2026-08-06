@@ -1,5 +1,7 @@
 import os
+import glob
 import json
+import sys
 import time
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -9,75 +11,56 @@ from automation.utils.logger_util import logger
 
 class ReportGenerator:
     @staticmethod
-    def save_intermediate_results(job_index: int, results: list):
-        """Saves intermediate JSON results for a single job slice."""
+    def save_intermediate_results(filename: str, results: list):
+        """Saves intermediate JSON results for a single suite/shard.
+
+        `filename` comes from Config.result_file_name() and encodes both the suite and the
+        shard index, so parallel jobs never collide.
+        """
         os.makedirs(Config.JSON_DIR, exist_ok=True)
-        filepath = os.path.join(Config.JSON_DIR, f"results_job_{job_index}.json")
+        filepath = os.path.join(Config.JSON_DIR, filename)
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
         logger.info(f"Saved {len(results)} intermediate results to {filepath}")
 
     @classmethod
     def consolidate_and_generate_all(cls) -> bool:
-        """Finds all intermediate JSON results, aggregates them, and generates all HTML/Excel reports.
-        Returns True if successful.
+        """Aggregates every intermediate result file and generates the HTML/Excel reports.
+
+        Raises RuntimeError if no results are found. This is deliberate: an earlier version
+        fabricated a full 1,500-case dataset at a ~97.5% pass rate whenever the real results
+        were missing, which let a completely broken pipeline publish a green quality report.
+        Reports must only ever describe tests that actually ran.
         """
         logger.info("Consolidating parallel execution results...")
         aggregated_results = []
         os.makedirs(Config.JSON_DIR, exist_ok=True)
-        
-        # Load all intermediate files
-        for i in range(Config.TOTAL_JOBS):
-            filepath = os.path.join(Config.JSON_DIR, f"results_job_{i}.json")
-            if os.path.exists(filepath):
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        job_data = json.load(f)
-                        aggregated_results.extend(job_data)
-                except Exception as e:
-                    logger.error(f"Error loading intermediate report {filepath}: {str(e)}")
-            else:
-                logger.warning(f"Intermediate file {filepath} not found. Running with mock/empty dataset for this slice.")
-        
-        # If no real intermediate files found, load scenarios and generate simulated/demonstration results
+
+        # Collect every per-suite/per-shard file the matrix produced.
+        pattern = os.path.join(Config.JSON_DIR, "results_*.json")
+        result_files = sorted(glob.glob(pattern))
+
+        if not result_files:
+            raise RuntimeError(
+                f"No intermediate result files matched {pattern}. The test suites either did not "
+                f"run or failed before writing results — refusing to generate a report."
+            )
+
+        for filepath in result_files:
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    shard_data = json.load(f)
+                aggregated_results.extend(shard_data)
+                logger.info(f"Loaded {len(shard_data)} results from {os.path.basename(filepath)}")
+            except Exception as e:
+                logger.error(f"Error loading intermediate report {filepath}: {str(e)}")
+
         if not aggregated_results:
-            logger.warning("No intermediate results found. Creating simulated sample reports for validation...")
-            from automation.data.scenarios import generate_all_scenarios
-            scenarios = generate_all_scenarios()
-            # Simulate a 98% pass rate
-            for index, sc in enumerate(scenarios):
-                status = "Passed"
-                actual = sc["expected_result"]
-                duration = 0.05 + (index % 10) * 0.02
-                error_msg = ""
-                
-                # Introduce a few simulated failures (2.5%) for realism and logic verification
-                # (Under 5% failure threshold, so it will succeed)
-                if index > 0 and index % 40 == 0:
-                    status = "Failed"
-                    actual = "Verification failed: element not found in DOM."
-                    error_msg = "AssertionError: Expected element was not visible after 20s"
-                elif index > 0 and index % 150 == 0:
-                    status = "Skipped"
-                    actual = "Skipped: prerequisite feature disabled."
-                    error_msg = ""
-                
-                aggregated_results.append({
-                    "id": sc["id"],
-                    "module": sc["module"],
-                    "type": sc["type"],
-                    "priority": sc["priority"],
-                    "title": sc["title"],
-                    "preconditions": sc["preconditions"],
-                    "steps": sc["steps"],
-                    "expected_result": sc["expected_result"],
-                    "actual_result": actual,
-                    "status": status,
-                    "execution_time": duration,
-                    "error_message": error_msg,
-                    "screenshot": ""
-                })
-        
+            raise RuntimeError(
+                f"Found {len(result_files)} result file(s) but they contained no test results — "
+                f"refusing to generate a report."
+            )
+
         # Save consolidated JSON
         consolidated_path = os.path.join(Config.JSON_DIR, "execution-results.json")
         with open(consolidated_path, "w", encoding="utf-8") as f:
@@ -670,5 +653,8 @@ class ReportGenerator:
         logger.info("Generated Markdown execution summary.")
 
 if __name__ == "__main__":
-    # Test consolidation/generation independently
-    ReportGenerator.consolidate_and_generate_all()
+    try:
+        ReportGenerator.consolidate_and_generate_all()
+    except RuntimeError as exc:
+        logger.error(str(exc))
+        sys.exit(1)

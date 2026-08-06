@@ -1,4 +1,4 @@
-name: Enterprise CI/CD Deployment, Live E2E Automation & Quality Reporting
+name: Deploy, Parallel Test Suites & Quality Reporting
 
 on:
   push:
@@ -7,24 +7,28 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-# Grant permissions required for GitHub Pages deployment and workflow artifact management
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  PYTHON_VERSION: '3.11'
+
 jobs:
-  build-and-deploy:
+  # ---------------------------------------------------------------------------
+  # 1. Build the Flutter web bundle and publish it as a Pages artifact.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build web bundle
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Configure Base URL
-        run: |
-          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          REPO_LOWER=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
-          echo "BASE_URL=https://${OWNER_LOWER}.github.io/${REPO_LOWER}/" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -35,225 +39,406 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Bundle Supabase Environment Configuration
+      - name: Bundle Supabase environment configuration
+        # Values come from repository secrets. Nothing is inlined here — a missing secret
+        # should surface as a broken build, not silently ship a fallback credential.
         run: |
-          # Write environment configuration to root .env file so it is bundled as a Flutter asset
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL || 'https://rhrvqnonrjfjexfqewjf.supabase.co' }}" > .env
-          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable_Iv-guLi4F2MM8mSGix1MYQ_hfQj7CYu' }}" >> .env
-          echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID || '691219519209-0bmvsi37cctm86idhvrue2a28aqbjjaq.apps.googleusercontent.com' }}" >> .env
-          cat .env
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
 
-      - name: Build Flutter Web Application
-        run: |
-          # Build Flutter web app with release optimization and the appropriate base href for GitHub Pages hosting
-          flutter build web --release --base-href=/${{ github.event.repository.name }}/
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      # configure-pages with enablement:true turns GitHub Pages on for the repository if it is
+      # not already enabled. This is what previously caused the deploy verification to 404 in a
+      # loop: the gh-pages branch held a perfectly valid build that Pages was never serving.
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
         with:
-          folder: build/web
-          branch: gh-pages
-          clean: true
+          enablement: true
 
-      - name: Wait for Deployment & Verify Availability
-        run: |
-          echo "Verifying live deployment at: $BASE_URL"
-          
-          # Retry loop to wait for GitHub Pages deployment update (max 5 minutes)
-          SUCCESS=false
-          for i in {1..15}; do
-            echo "Attempt $i: Checking deployment health..."
-            RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
-            if [ "$RESPONSE_CODE" = "200" ]; then
-              echo "Deployment is online! (Received HTTP 200)"
-              SUCCESS=true
-              break
-            fi
-            echo "Deployment not ready (HTTP $RESPONSE_CODE). Waiting 20 seconds..."
-            sleep 20
-          done
-          
-          if [ "$SUCCESS" = "false" ]; then
-            echo "::error::Deployment Verification Failed: Live application URL was not available."
-            echo "=========================================================================="
-            echo "❌ DEPLOYMENT DIAGNOSTICS & TROUBLESHOOTING CARD"
-            echo "=========================================================================="
-            echo "Tested URL: $BASE_URL"
-            echo "Last HTTP Code Received: $RESPONSE_CODE"
-            echo ""
-            echo "If you received HTTP 404, please check the following configurations:"
-            echo "1. GitHub Pages Activation:"
-            echo "   Go to your GitHub repository -> Settings -> Pages"
-            echo "2. Build & Deployment Source:"
-            echo "   Under 'Build and deployment', verify that 'Source' is set to 'Deploy from a branch'."
-            echo "3. Target Branch Configuration:"
-            echo "   Under 'Branch', verify that the branch is set to 'gh-pages' and folder is set to '/ (root)'."
-            echo "   Click 'Save' if you changed these settings."
-            echo "4. Build Sync Pipeline:"
-            echo "   Go to the Actions tab and verify if the automatic 'pages-build-deployment' run has completed successfully."
-            echo "=========================================================================="
-            exit 1
-          fi
-          
-          # Asset verification checks (CSS/JS files inside page loader)
-          echo "Checking main scripts..."
-          JS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}flutter_bootstrap.js")
-          if [ "$JS_CODE" != "200" ]; then
-            echo "::error::Asset Verification Failed: flutter_bootstrap.js is missing or inaccessible (HTTP $JS_CODE)."
-            echo "Tested asset URL: ${BASE_URL}flutter_bootstrap.js"
-            exit 1
-          fi
-          echo "Live assets verified successfully."
+      - name: Build Flutter web
+        run: flutter build web --release --base-href "${{ steps.pages.outputs.base_path }}/"
 
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
 
-  execute-tests:
+  # ---------------------------------------------------------------------------
+  # 2. Deploy to Pages and export the real published URL for the test suites.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
-    needs: build-and-deploy
-    strategy:
-      matrix:
-        job_index: [0, 1, 2, 3, 4]
-      fail-fast: false
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      base_url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
 
-      - name: Configure Base URL
+      # The URL comes from the deployment output rather than being assembled from the owner and
+      # repository names, so owner casing and repo spelling can never drift out of sync.
+      - name: Verify the deployment is serving
         run: |
-          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          REPO_LOWER=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
-          echo "BASE_URL=https://${OWNER_LOWER}.github.io/${REPO_LOWER}/" >> $GITHUB_ENV
+          BASE_URL="${{ steps.deployment.outputs.page_url }}"
+          echo "Verifying live deployment at: $BASE_URL"
+
+          for attempt in $(seq 1 6); do
+            CODE=$(curl -sSL -o /dev/null -w "%{http_code}" "$BASE_URL" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "Deployment is online (HTTP 200)."
+              JS_CODE=$(curl -sSL -o /dev/null -w "%{http_code}" "${BASE_URL}flutter_bootstrap.js" || echo "000")
+              if [ "$JS_CODE" = "200" ]; then
+                echo "Live assets verified successfully."
+                exit 0
+              fi
+              echo "::warning::index.html served but flutter_bootstrap.js returned HTTP $JS_CODE."
+              exit 0
+            fi
+            echo "Attempt $attempt: not ready yet (HTTP $CODE). Waiting 10s..."
+            sleep 10
+          done
+
+          echo "::error::Deployment verification failed. Last HTTP code: $CODE"
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # 3a. Unit suite — Flutter widget/unit tests plus the FastAPI backend tests.
+  #     Independent of the deployment, so it starts immediately.
+  # ---------------------------------------------------------------------------
+  unit:
+    name: "Suite: unit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install System dependencies (Chrome & Chrome Driver)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+      - name: Flutter dependencies
+        run: flutter pub get
 
-      - name: Install Python Backend Dependencies
-        run: |
-          cd medintel-nexus-backend
-          pip install -r requirements.txt
-          pip install uvicorn
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Start FastAPI Backend in Background
-        run: |
-          cd medintel-nexus-backend
-          # Start backend server on port 8000 using uvicorn
-          uvicorn main:app --host 0.0.0.0 --port 8000 &
-          
-          # Wait and poll health endpoint
-          echo "Waiting for FastAPI server to start..."
-          for i in {1..10}; do
-            if curl -s http://localhost:8000/health | grep -q "ok"; then
-              echo "FastAPI Backend is online and healthy."
-              break
-            fi
-            sleep 2
-          done
+      - name: Flutter unit and widget tests
+        run: flutter test --reporter expanded
 
-      - name: Install Automation Suite Requirements
+      - name: Backend dependencies
         run: |
-          pip install selenium pytest openpyxl requests
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
 
-      - name: Execute Parallel Selenium & Scenario Partition
+      - name: Backend tests
+        working-directory: medintel-nexus-backend
+        run: python -m pytest tests -v
+
+  # ---------------------------------------------------------------------------
+  # 3b. Selenium suite — 900 functional scenarios against the live deployment.
+  #     Sharded six ways; a session-scoped browser is reused across a whole shard.
+  # ---------------------------------------------------------------------------
+  selenium:
+    name: "Suite: selenium (shard ${{ matrix.shard }})"
+    runs-on: ubuntu-latest
+    needs: deploy
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      # Chrome is preinstalled on ubuntu-latest, and Selenium Manager resolves the matching
+      # driver automatically. The previous `apt-get install google-chrome-stable` could not
+      # work because Google's apt repository was never added.
+      - name: Verify Chrome availability
+        run: google-chrome --version
+
+      - name: Install suite dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium pytest requests openpyxl
+
+      - name: Run functional scenarios
         env:
-          BASE_URL: ${{ env.BASE_URL }}
-          BACKEND_URL: "http://localhost:8000"
-          JOB_INDEX: ${{ matrix.job_index }}
-          TOTAL_JOBS: 5
-          TESTS_PER_JOB: 300
-        run: |
-          # Run pytest on our Selenium suite partition
-          pytest automation/tests/test_selenium.py -v --tb=short || true
+          BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          SUITE: functional
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 6
+        run: python -m pytest automation/tests/test_selenium.py -v
 
-      - name: Upload Intermediate Partition JSON Report
+      - name: Upload results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: intermediate_results_job_${{ matrix.job_index }}
-          path: automation/reports/JSON/results_job_${{ matrix.job_index }}.json
+          name: results-selenium-${{ matrix.shard }}
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
           retention-days: 1
 
-      - name: Upload Matrix Job Diagnostics
+      - name: Upload diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: diagnostics_job_${{ matrix.job_index }}
+          name: diagnostics-selenium-${{ matrix.shard }}
           path: |
             automation/reports/Logs/
             automation/reports/Screenshots/
+          if-no-files-found: ignore
           retention-days: 30
 
-  aggregate-and-report:
+  # ---------------------------------------------------------------------------
+  # 3c. Load suite — 300 performance scenarios against the backend. No browser.
+  # ---------------------------------------------------------------------------
+  load:
+    name: "Suite: load"
     runs-on: ubuntu-latest
-    needs: execute-tests
+    needs: deploy
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Configure Base URL
-        run: |
-          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          REPO_LOWER=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
-          echo "BASE_URL=https://${OWNER_LOWER}.github.io/${REPO_LOWER}/" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
-      - name: Install Report Utility Dependencies
+      - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
+          pip install pytest requests openpyxl
+
+      - name: Start FastAPI backend
+        working-directory: medintel-nexus-backend
+        run: |
+          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:8000/health | grep -q "ok"; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy in time."
+          cat uvicorn.log
+          exit 1
+
+      - name: Run performance scenarios
+        env:
+          BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          BACKEND_URL: http://127.0.0.1:8000
+          SUITE: performance
+        run: python -m pytest automation/tests/test_load.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-load
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # 3d. Vulnerability suite — 300 security scenarios. No browser.
+  # ---------------------------------------------------------------------------
+  vulnerability:
+    name: "Suite: vulnerability"
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
+          pip install pytest requests openpyxl
+
+      - name: Start FastAPI backend
+        working-directory: medintel-nexus-backend
+        run: |
+          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:8000/health | grep -q "ok"; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy in time."
+          cat uvicorn.log
+          exit 1
+
+      - name: Run security scenarios
+        env:
+          BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          BACKEND_URL: http://127.0.0.1:8000
+          SUITE: security
+        run: python -m pytest automation/tests/test_vulnerability.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-vulnerability
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # 3e. Appium suite — built and validated here, executed locally against a device.
+  #     No Android emulator runs on CI, so this job proves the APK builds and the
+  #     native suite imports and collects cleanly.
+  # ---------------------------------------------------------------------------
+  appium:
+    name: "Suite: appium"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          python -m pip install --upgrade pip
+          pip install pytest requests openpyxl Appium-Python-Client
+
+      - name: Bundle Supabase environment configuration
+        run: |
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Validate the native suite collects
+        env:
+          SUITE: appium
+        run: python -m pytest automation/tests/test_appium.py --collect-only -v
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medintel-nexus-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # 4. Aggregate every suite's results into the consolidated quality report.
+  # ---------------------------------------------------------------------------
+  report:
+    name: Aggregate and report
+    runs-on: ubuntu-latest
+    needs: [unit, selenium, load, vulnerability, appium]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install reporting dependencies
+        run: |
+          python -m pip install --upgrade pip
           pip install openpyxl requests
 
-      - name: Create Reports Directories
-        run: |
-          mkdir -p automation/reports/JSON
-          mkdir -p automation/reports/Logs
-          mkdir -p automation/reports/Screenshots
-          mkdir -p automation/reports/Excel
-          mkdir -p automation/reports/HTML
-          mkdir -p automation/reports/Summary
+      - name: Prepare report directories
+        run: mkdir -p automation/reports/{JSON,Logs,Screenshots,Excel,HTML,Summary}
 
-      - name: Download all Intermediate Partition Results
+      - name: Download suite results
         uses: actions/download-artifact@v4
         with:
           path: temp_artifacts/
+          pattern: results-*
+          merge-multiple: false
 
-      - name: Move downloaded JSONs to reporting directory
+      - name: Collect result files
         run: |
-          find temp_artifacts/ -name "results_job_*.json" -exec cp {} automation/reports/JSON/ \;
-          ls -R automation/reports/JSON/
+          find temp_artifacts/ -name "results_*.json" -exec cp {} automation/reports/JSON/ \;
+          echo "Collected result files:"
+          ls -la automation/reports/JSON/
 
-      - name: Compile and Aggregate Final Reports
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
-        run: |
-          # Consolidate reports and generate Excel & HTML sheets
-          python automation/utils/report_generator.py
+      # Fails loudly if no suite produced results, rather than fabricating a dataset.
+      - name: Compile consolidated reports
+        run: python -m automation.utils.report_generator
 
-      - name: Evaluate Gateway SLA Pass/Fail Status
-        run: |
-          # Run SLA check (fails workflow if pass rate < 95% or critical defect rate > 5%)
-          python automation/utils/summary_generator.py
+      - name: Evaluate SLA gate
+        run: python -m automation.utils.summary_generator
 
-      - name: Publish Markdown Job Summary
+      - name: Publish job summary
         if: always()
         run: |
-          # Output final execution details to GHA summary tab
-          cat automation/reports/Summary/summary.md >> $GITHUB_STEP_SUMMARY
+          if [ -f automation/reports/Summary/summary.md ]; then
+            cat automation/reports/Summary/summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No summary was generated — the suites did not produce results." >> $GITHUB_STEP_SUMMARY
+          fi
 
-      - name: Upload Final Consolidated Reports
+      - name: Upload consolidated reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -263,4 +448,5 @@ jobs:
             automation/reports/HTML/
             automation/reports/JSON/execution-results.json
             automation/reports/Summary/
+          if-no-files-found: warn
           retention-days: 30

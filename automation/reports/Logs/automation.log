@@ -33,3 +33,100 @@
 2026-08-06 09:56:09,118 - INFO - [summary_generator.py:55] - Critical Failure Rate: 3.04% (Threshold: <= 5.00%)
 2026-08-06 09:56:09,118 - INFO - [summary_generator.py:56] - ========================================
 2026-08-06 09:56:09,118 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
+2026-08-06 11:01:20,406 - INFO - [report_generator.py:24] - Saved 0 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_functional_0.json
+2026-08-06 11:01:20,406 - INFO - [conftest.py:75] - Pytest session finished. Wrote 0 results for suite=functional shard=0/1.
+2026-08-06 11:01:30,129 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0001] [OWASP Top 10] - Security verification: OWASP Top 10 - Scenario 001 (Verify compliance with OWASP vulnerability guidelines)
+2026-08-06 11:01:30,130 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0061] [Authorization Validation] - Security verification: Authorization Validation - Scenario 001 (Verify role base privilege elevation prevention)
+2026-08-06 11:01:30,130 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0121] [SQL Injection] - Security verification: SQL Injection - Scenario 001 (Verify injection payloads escaping on API routes)
+2026-08-06 11:01:30,143 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0181] [CSRF Verification] - Security verification: CSRF Verification - Scenario 001 (Verify anti-forgery tokens inclusion in state-changing calls)
+2026-08-06 11:01:30,143 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0241] [Cookie Validation] - Security verification: Cookie Validation - Scenario 001 (Verify Secure, HttpOnly, and SameSite attribute values)
+2026-08-06 11:01:30,181 - INFO - [report_generator.py:24] - Saved 5 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_security_0.json
+2026-08-06 11:01:30,181 - INFO - [conftest.py:75] - Pytest session finished. Wrote 5 results for suite=security shard=0/60.
+2026-08-06 11:01:37,787 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
+2026-08-06 11:01:37,788 - ERROR - [report_generator.py:659] - No intermediate result files matched /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_*.json. The test suites either did not run or failed before writing results — refusing to generate a report.
+2026-08-06 11:01:44,072 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
+2026-08-06 11:01:44,072 - ERROR - [report_generator.py:659] - No intermediate result files matched /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_*.json. The test suites either did not run or failed before writing results — refusing to generate a report.
+2026-08-06 11:05:12,135 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0001] [OWASP Top 10] - Security verification: OWASP Top 10 - Scenario 001 (Verify compliance with OWASP vulnerability guidelines)
+2026-08-06 11:05:12,136 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0031] [Authentication Security] - Security verification: Authentication Security - Scenario 001 (Verify password hashing, lockout logic, and OAuth safety)
+2026-08-06 11:05:12,136 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0061] [Authorization Validation] - Security verification: Authorization Validation - Scenario 001 (Verify role base privilege elevation prevention)
+2026-08-06 11:05:12,137 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0091] [Input Validation] - Security verification: Input Validation - Scenario 001 (Verify sanitization of toxic characters and length constraints)
+2026-08-06 11:05:12,137 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0121] [SQL Injection] - Security verification: SQL Injection - Scenario 001 (Verify injection payloads escaping on API routes)
+2026-08-06 11:05:12,147 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0151] [XSS Prevention] - Security verification: XSS Prevention - Scenario 001 (Verify script content escaping in output views)
+2026-08-06 11:05:12,151 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0181] [CSRF Verification] - Security verification: CSRF Verification - Scenario 001 (Verify anti-forgery tokens inclusion in state-changing calls)
+2026-08-06 11:05:12,151 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0211] [Security Headers] - Security verification: Security Headers - Scenario 001 (Verify presence of HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+2026-08-06 11:05:12,477 - INFO - [scenario_runner.py:81] - Security Headers check: CSP=default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'self', HSTS=Missing
+2026-08-06 11:05:12,480 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0241] [Cookie Validation] - Security verification: Cookie Validation - Scenario 001 (Verify Secure, HttpOnly, and SameSite attribute values)
+2026-08-06 11:05:12,482 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0271] [Sensitive Exposure] - Security verification: Sensitive Exposure - Scenario 001 (Verify prevention of leaked tokens, secrets, or Stack traces)
+2026-08-06 11:05:12,560 - INFO - [report_generator.py:24] - Saved 10 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_security_0.json
+2026-08-06 11:05:12,560 - INFO - [conftest.py:75] - Pytest session finished. Wrote 10 results for suite=security shard=0/30.
+2026-08-06 11:05:12,732 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0001] [Load Testing] - Performance assessment: Load Testing - Scenario 001 (Verify performance under normal and peak simulated loads)
+2026-08-06 11:05:12,741 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0001: 0.009s
+2026-08-06 11:05:12,742 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0031] [Load Testing] - Performance assessment: Load Testing - Scenario 031 (Verify performance under normal and peak simulated loads)
+2026-08-06 11:05:12,744 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0031: 0.002s
+2026-08-06 11:05:12,745 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0061] [Stress Testing] - Performance assessment: Stress Testing - Scenario 018 (Verify application behavior beyond normal capacity limits)
+2026-08-06 11:05:12,748 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0061: 0.003s
+2026-08-06 11:05:12,748 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0091] [Spike Testing] - Performance assessment: Spike Testing - Scenario 005 (Verify stability during sudden dramatic increases in user load)
+2026-08-06 11:05:12,750 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0091: 0.002s
+2026-08-06 11:05:12,751 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0121] [Spike Testing] - Performance assessment: Spike Testing - Scenario 035 (Verify stability during sudden dramatic increases in user load)
+2026-08-06 11:05:12,752 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0121: 0.002s
+2026-08-06 11:05:12,753 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0151] [Endurance Testing] - Performance assessment: Endurance Testing - Scenario 022 (Verify system resource utilization over prolonged operations)
+2026-08-06 11:05:12,754 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0151: 0.002s
+2026-08-06 11:05:12,755 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0181] [Throughput Analysis] - Performance assessment: Throughput Analysis - Scenario 009 (Verify volume of requests processed per second)
+2026-08-06 11:05:12,756 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0181: 0.002s
+2026-08-06 11:05:12,756 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0211] [Throughput Analysis] - Performance assessment: Throughput Analysis - Scenario 039 (Verify volume of requests processed per second)
+2026-08-06 11:05:12,758 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0211: 0.002s
+2026-08-06 11:05:12,758 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0241] [Response Time Analysis] - Performance assessment: Response Time Analysis - Scenario 026 (Verify latency profiles and page load percentiles)
+2026-08-06 11:05:12,760 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0241: 0.002s
+2026-08-06 11:05:12,761 - INFO - [scenario_runner.py:112] - Starting test case: [TC_PERF_0271] [Concurrent User Simulation] - Performance assessment: Concurrent User Simulation - Scenario 013 (Verify concurrent browser connections thread safety)
+2026-08-06 11:05:12,762 - INFO - [scenario_runner.py:62] - API latency check for TC_PERF_0271: 0.001s
+2026-08-06 11:05:12,800 - INFO - [report_generator.py:24] - Saved 10 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_performance_0.json
+2026-08-06 11:05:12,800 - INFO - [conftest.py:75] - Pytest session finished. Wrote 10 results for suite=performance shard=0/30.
+2026-08-06 11:05:12,925 - INFO - [driver_factory.py:24] - Appium client library is not installed; native suite will be skipped.
+2026-08-06 11:05:12,967 - INFO - [report_generator.py:24] - Saved 0 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_appium_0.json
+2026-08-06 11:05:12,967 - INFO - [conftest.py:75] - Pytest session finished. Wrote 0 results for suite=appium shard=0/1.
+2026-08-06 11:05:20,465 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
+2026-08-06 11:05:20,466 - INFO - [report_generator.py:54] - Loaded 0 results from results_appium_0.json
+2026-08-06 11:05:20,466 - INFO - [report_generator.py:54] - Loaded 10 results from results_performance_0.json
+2026-08-06 11:05:20,466 - INFO - [report_generator.py:54] - Loaded 10 results from results_security_0.json
+2026-08-06 11:05:20,466 - INFO - [report_generator.py:69] - Consolidated 20 total test cases.
+2026-08-06 11:05:20,475 - INFO - [report_generator.py:175] - Exported Excel report: Automation_Test_Report.xlsx
+2026-08-06 11:05:20,483 - INFO - [report_generator.py:175] - Exported Excel report: Passed_Test_Cases.xlsx
+2026-08-06 11:05:20,485 - INFO - [report_generator.py:175] - Exported Excel report: Failed_Test_Cases.xlsx
+2026-08-06 11:05:20,489 - INFO - [report_generator.py:261] - Exported Excel summary report.
+2026-08-06 11:05:20,490 - INFO - [report_generator.py:568] - Generated HTML dashboard and execution reports.
+2026-08-06 11:05:20,490 - INFO - [report_generator.py:653] - Generated Markdown execution summary.
+2026-08-06 11:05:20,516 - INFO - [summary_generator.py:14] - Evaluating test execution compliance...
+2026-08-06 11:05:20,516 - INFO - [summary_generator.py:46] - ========================================
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:47] - Enterprise QA Gateway Validation Results
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:48] - ========================================
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:49] - Total Test Cases: 20
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:50] - Passed: 20
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:51] - Failed: 0
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:52] - Overall Pass Rate: 100.00% (Threshold: >= 95.00%)
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:53] - Total Critical Tests: 10
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:54] - Failed Critical Tests: 0
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:55] - Critical Failure Rate: 0.00% (Threshold: <= 5.00%)
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:56] - ========================================
+2026-08-06 11:05:20,517 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
+2026-08-06 11:05:46,204 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-06 11:05:58,285 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-06 11:05:58,286 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify authentication scenario variant 001: Verify user identity authentication mechanism
+2026-08-06 11:05:59,912 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:09,924 - INFO - [scenario_runner.py:37] - Found 0 input fields on the screen.
+2026-08-06 11:06:09,925 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0151] [Navigation] - Verify navigation scenario variant 011: Verify route routing and drawer link traversal
+2026-08-06 11:06:11,003 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:11,005 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0301] [Forms] - Verify forms scenario variant 001: Verify field input, dropdown selections, and form states
+2026-08-06 11:06:12,050 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:12,051 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0451] [CRUD Operations] - Verify crud operations scenario variant 071: Verify database creation, reading, updates, and deletion
+2026-08-06 11:06:13,108 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:13,109 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0601] [Session Management] - Verify session management scenario variant 001: Verify token persistence, timeout limits, and logout states
+2026-08-06 11:06:14,156 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:14,156 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0751] [Accessibility] - Verify accessibility scenario variant 031: Verify semantic nodes, screen reader tags, and contrast rules
+2026-08-06 11:06:15,207 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8899/main.dart.js 4177:19 
+2026-08-06 11:06:15,289 - DEBUG - [conftest.py:28] - Driver shutdown successfully.
+2026-08-06 11:06:15,335 - INFO - [report_generator.py:24] - Saved 6 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_functional_0.json
+2026-08-06 11:06:15,335 - INFO - [conftest.py:75] - Pytest session finished. Wrote 6 results for suite=functional shard=0/150.
+2026-08-06 11:07:33,421 - INFO - [report_generator.py:24] - Saved 0 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_functional_0.json
+2026-08-06 11:07:33,421 - INFO - [conftest.py:75] - Pytest session finished. Wrote 0 results for suite=functional shard=0/1.
+2026-08-06 11:07:37,589 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
+2026-08-06 11:07:37,589 - ERROR - [report_generator.py:659] - No intermediate result files matched /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_*.json. The test suites either did not run or failed before writing results — refusing to generate a report.

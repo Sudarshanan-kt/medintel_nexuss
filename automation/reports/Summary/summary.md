@@ -1,27 +1,27 @@
 # 🚀 MedIntel Nexus QA Execution Summary
 
 ### 🌐 Live Deployment Target
-* **Deployment URL**: [https://sudarshanankt.github.io/medintel_nexus/](https://sudarshanankt.github.io/medintel_nexus/)
+* **Deployment URL**: [https://sudarshanan-kt.github.io/medintel_nexuss/](https://sudarshanan-kt.github.io/medintel_nexuss/)
 * **Deployment Status**: ✅ Completed & Available
-* **Execution Timestamp**: 2026-08-06 09:55:58 UTC
+* **Execution Timestamp**: 2026-08-06 11:05:20 UTC
 
 ---
 
 ### 📊 Performance Summary Metrics
 | Metric | Value |
 |---|---|
-| **Total Test Cases Executed** | 1500 |
-| **Passed** | 1456 |
-| **Failed** | 37 |
-| **Skipped** | 7 |
-| **Pass Percentage** | **97.07%** |
-| **Total Execution Duration** | 210.00 seconds |
+| **Total Test Cases Executed** | 20 |
+| **Passed** | 20 |
+| **Failed** | 0 |
+| **Skipped** | 0 |
+| **Pass Percentage** | **100.00%** |
+| **Total Execution Duration** | 0.37 seconds |
 
 ---
 
 ### 🏆 Module Insights
-* **Top Performing Modules**: Security Headers, Authentication, Error Handling
-* **Top Failed Modules (Need Attention)**: XSS Prevention, Accessibility, Endurance Testing
+* **Top Performing Modules**: Load Testing, Stress Testing, Spike Testing
+* **Top Failed Modules (Need Attention)**: None
 
 ---
 

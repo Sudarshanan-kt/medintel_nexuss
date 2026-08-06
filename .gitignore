@@ -20,4 +20,13 @@ venv/
 .venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
 .claude/
+
+# Generated test reports — produced by CI, not source
+automation/reports/Excel/
+automation/reports/HTML/
+automation/reports/JSON/
+automation/reports/Logs/
+automation/reports/Screenshots/
+automation/reports/Summary/

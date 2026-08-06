@@ -68,25 +68,65 @@ uvicorn main:app --reload --port 8000
 ```
 
 ### 4. Execute the Tests
-Execute the tests using Pytest. You can run all tests, or select a specific matrix slice of 300 tests by configuring the `JOB_INDEX` environment variable (0 to 4):
+
+The scenarios in `automation/data/scenarios.py` carry a `type` field, and each suite selects its
+own slice. Always invoke pytest as `python -m pytest` from the repository root — the root
+`pytest.ini` puts the repo on `sys.path` so `automation.*` imports resolve.
 
 ```bash
-# To simulate matrix job 0 (Executes test cases 1 to 300)
-export BASE_URL="https://sudarshanankt.github.io/medintel_nexus/"
-export JOB_INDEX=0
-pytest automation/tests/test_selenium.py -v --tb=short
+export BASE_URL="https://sudarshanan-kt.github.io/medintel_nexuss/"
+export BACKEND_URL="http://127.0.0.1:8000"
 
-# To run a different partition (e.g. partition 2: tests 601 to 900)
-export JOB_INDEX=2
-pytest automation/tests/test_selenium.py -v --tb=short
+# Selenium / functional suite (900 scenarios, needs Chrome)
+SUITE=functional python -m pytest automation/tests/test_selenium.py -v
+
+# Load / performance suite (300 scenarios, no browser)
+SUITE=performance python -m pytest automation/tests/test_load.py -v
+
+# Vulnerability / security suite (300 scenarios, no browser)
+SUITE=security python -m pytest automation/tests/test_vulnerability.py -v
 ```
 
-### 5. Generate and View Reports
-After all test partition jobs run (or to run in single-machine mock aggregation mode), execute the reporting utility to aggregate results:
+A large suite can be split across several terminals or machines with `SHARD_INDEX` /
+`SHARD_TOTAL`. Shards are striped round-robin, so each one stays a representative sample:
 
 ```bash
-python automation/utils/report_generator.py
+SUITE=functional SHARD_INDEX=0 SHARD_TOTAL=3 python -m pytest automation/tests/test_selenium.py
+SUITE=functional SHARD_INDEX=1 SHARD_TOTAL=3 python -m pytest automation/tests/test_selenium.py
+SUITE=functional SHARD_INDEX=2 SHARD_TOTAL=3 python -m pytest automation/tests/test_selenium.py
 ```
+
+Each run writes `automation/reports/JSON/results_<suite>_<shard>.json`.
+
+### 5. Run the Native (Appium) Suite
+
+The Appium suite needs a real device or emulator plus a running Appium server, so CI only
+validates that it collects — you execute it locally:
+
+```bash
+pip install Appium-Python-Client
+flutter build apk --debug
+
+appium --base-path /            # in a second terminal
+
+SUITE=appium python -m pytest automation/tests/test_appium.py -v
+```
+
+Without a reachable Appium server the suite skips cleanly rather than failing. Point it at a
+different host or device with `APPIUM_SERVER_URL`, `APPIUM_DEVICE_NAME` and `APPIUM_APP_PATH`.
+
+### 6. Generate and View Reports
+
+After the suites have run, aggregate their results:
+
+```bash
+python -m automation.utils.report_generator
+python -m automation.utils.summary_generator   # applies the SLA gate
+```
+
+If no suite produced results the aggregation **fails with exit code 1** rather than emitting a
+report. This is deliberate — a quality report must only ever describe tests that actually ran.
+
 Open `automation/reports/HTML/dashboard.html` in your web browser to view the interactive dashboard.
 
 ---
@@ -99,29 +139,49 @@ The CI/CD pipeline is implemented in `.github/workflows/deploy-and-test.yml`. It
 - Manual trigger using the `workflow_dispatch` button in the actions panel.
 
 ### Workflow Execution Flow
+
+Five suites run **in parallel**. `unit` and `appium` do not depend on the deployment, so they
+start immediately; the three suites that exercise the live site wait for Pages to publish.
+
 ```mermaid
 graph TD
-    A[Trigger Event] --> B[Job: build-and-deploy]
-    B -->|Build Web & Deploy| C[GitHub Pages Branch: gh-pages]
-    B -->|Wait & Ping URL| D[Deployment Health Check]
-    D -->|HTTP 200 OK| E[Job: execute-tests Matrix]
-    E -->|Matrix Job 0: Tests 1-300| F[Upload JSON 0]
-    E -->|Matrix Job 1: Tests 301-600| G[Upload JSON 1]
-    E -->|Matrix Job 2: Tests 601-900| H[Upload JSON 2]
-    E -->|Matrix Job 3: Tests 901-1200| I[Upload JSON 3]
-    E -->|Matrix Job 4: Tests 1201-1500| J[Upload JSON 4]
-    F & G & H & I & J --> K[Job: aggregate-and-report]
-    K -->|Aggregate JSONs| L[Generate HTML/Excel Reports]
-    L -->|Validate Gateway SLA| M{95% Pass & <5% Crit Fail?}
-    M -->|Yes| N[Workflow Success & Publish Summary]
-    M -->|No| O[Workflow Fail & Publish Summary]
+    A[Trigger Event] --> B[Job: build]
+    B -->|configure-pages + upload-pages-artifact| C[Job: deploy]
+    C -->|deploy-pages, exports page_url| D[Deployment verified]
+
+    A --> U[Suite: unit]
+    A --> P[Suite: appium]
+    D --> S[Suite: selenium x6 shards]
+    D --> L[Suite: load]
+    D --> V[Suite: vulnerability]
+
+    U & S & L & V & P --> R[Job: report]
+    R -->|Aggregate results_*.json| G[Generate HTML/Excel Reports]
+    G -->|Validate Gateway SLA| M{95% Pass & <5% Crit Fail?}
+    M -->|Yes| Y[Workflow Success & Publish Summary]
+    M -->|No| N[Workflow Fail & Publish Summary]
 ```
+
+| Suite | What it runs | Browser | Needs deploy |
+|---|---|---|---|
+| `unit` | `flutter test` + `flutter analyze` + backend `pytest` | no | no |
+| `selenium` | 900 functional scenarios, 6 shards | yes | yes |
+| `load` | 300 performance scenarios against the backend | no | yes |
+| `vulnerability` | 300 security scenarios against the backend | no | yes |
+| `appium` | builds the debug APK, validates the native suite collects | no | no |
+
+The deployment uses the official `actions/configure-pages` → `upload-pages-artifact` →
+`deploy-pages` chain with `enablement: true`, and `BASE_URL` is taken from the deployment's own
+`page_url` output rather than assembled from the owner and repository names.
 
 ### SLA Quality Gates
 The workflow evaluates SLA gates in the final job:
-1. **Pass Rate**: Overall pass rate across all 1,500 tests must be **at least 95.00%**.
+1. **Pass Rate**: Overall pass rate across all executed tests must be **at least 95.00%**.
 2. **Critical Severity**: Failure rate of test cases marked as `Critical` must not exceed **5.00%**.
 If either SLA condition fails, the pipeline exits with error code 1, marking the GitHub Actions run as failed.
+
+The gate only ever evaluates results that were actually produced — if no suite wrote results,
+the aggregation step fails rather than substituting a synthetic dataset.
 
 ---
 
