@@ -1,0 +1,23 @@
+build/
+.dart_tool/
+.flutter-plugin-dependencies
+.packages
+*.iml
+.idea/
+.vscode/
+ios/Pods/
+android/.gradle/
+android/local.properties
+*.env
+.env
+outputs/
+
+# macOS
+.DS_Store
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.claude/

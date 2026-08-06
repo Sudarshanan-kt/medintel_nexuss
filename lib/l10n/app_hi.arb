@@ -1,0 +1,82 @@
+{
+  "@@locale": "hi",
+
+  "navHome": "होम",
+  "navAssistant": "सहायक",
+  "navScan": "स्कैन",
+  "navReports": "रिपोर्ट",
+  "navProfile": "प्रोफ़ाइल",
+
+  "dashboardTitle": "स्वास्थ्य डैशबोर्ड",
+  "dashboardSubtitle": "आपके मेडिकल रिकॉर्ड के साथ सिंक किया गया",
+  "statMedicines": "दवाइयाँ",
+  "statAlerts": "अलर्ट",
+  "statAllClear": "सब ठीक है",
+  "statReviewNow": "अभी देखें",
+  "statScansCount": "{count, plural, =0{0 स्कैन} =1{1 स्कैन} other{{count} स्कैन}}",
+
+  "quickActionsTitle": "त्वरित कार्य",
+  "quickActionMedicineReminder": "दवा\nरिमाइंडर",
+  "quickActionNearbyPharmacies": "नज़दीकी\nफार्मेसी",
+  "quickActionHealthRisk": "स्वास्थ्य जोखिम\nजानकारी",
+  "quickActionEmergencyContacts": "आपातकालीन\nसंपर्क",
+  "quickActionGenericSwap": "जेनेरिक\nस्वैप",
+
+  "nextDoseLabel": "अगली खुराक",
+  "nextDoseNone": "कोई रिमाइंडर नहीं",
+  "nextDoseClear": "सब कुछ ठीक है",
+
+  "adherenceStreak": "{days, plural, =0{कोई सक्रिय स्ट्रीक नहीं} =1{1 दिन की स्ट्रीक} other{{days} दिन की स्ट्रीक}}",
+  "adherenceLabel": "पालन",
+  "adherenceNoData": "अभी तक कोई डेटा नहीं",
+  "adherenceNoDataHint": "स्ट्रीक शुरू करने के लिए खुराक को लिया या छूटा हुआ चिह्नित करें।",
+
+  "recentActivityTitle": "हाल की गतिविधि",
+  "viewAll": "सभी देखें",
+  "noActivityTitle": "अभी तक कोई गतिविधि नहीं",
+  "noActivityHint": "शुरू करने के लिए एक पर्ची स्कैन करें या रिपोर्ट अपलोड करें।",
+
+  "noNewNotifications": "कोई नया नोटिफिकेशन नहीं",
+  "comingSoon": "{label} — जल्द आ रहा है",
+
+  "doseSlotMorning": "सुबह की खुराक",
+  "doseSlotAfternoon": "दोपहर की खुराक",
+  "doseSlotNight": "रात की खुराक",
+
+  "activityPrescriptionScan": "पर्ची स्कैन",
+  "activityMedicinesRecorded": "{count, plural, =1{1 दवा दर्ज की गई} other{{count} दवाइयाँ दर्ज की गईं}}",
+  "activityAnalysed": "विश्लेषण हो गया",
+  "activityProcessing": "प्रोसेसिंग हो रही है",
+
+  "insightMedicineFlaggedTitle": "{name} {strength} फ़्लैग किया गया",
+  "insightMedicineFlaggedDefaultSubtitle": "विवरण देखने के लिए टैप करें",
+  "insightReportDefaultSubtitle": "विश्लेषण देखें",
+  "insightWearableHrTitle": "आराम की हृदय गति बढ़ी हुई है",
+  "insightWearableHrSubtitle": "आज {bpm} bpm — अगली जांच में इसका ज़िक्र करें।",
+  "insightWearableSleepTitle": "पिछली रात कम नींद",
+  "insightWearableSleepSubtitle": "सिर्फ़ {hours} घंटे दर्ज — नींद रक्तचाप और रक्त शर्करा को प्रभावित करती है।",
+  "insightGenericSwapTitle": "{count, plural, =1{जेनेरिक विकल्प उपलब्ध है} other{{count} दवाइयों के लिए जेनेरिक विकल्प उपलब्ध हैं}}",
+  "insightGenericSwapSubtitle": "{brandName} से {genericName} पर स्विच करके {savingsLabel} बचाएं — जेनेरिक स्वैप देखें।",
+  "insightRecentScanTitle": "{count, plural, =1{हाल की स्कैन · 1 दवा} other{हाल की स्कैन · {count} दवाइयाँ}}",
+  "insightRecentScanSubtitleCaptured": "{date} को कैप्चर किया गया",
+  "insightRecentScanSubtitleTapToView": "देखने के लिए टैप करें",
+
+  "insightCorrelatedBadge": "संबंधित",
+  "insightCorrelatedAdherenceVitalsTitle": "दवा न लेने का असर आपके वाइटल्स पर पड़ सकता है",
+  "insightCorrelatedAdherenceVitalsSubtitle": "पिछले दो हफ़्तों में आपका दवा पालन औसतन {percent}% रहा, और इसी अवधि में आपका {vitalLabel} बढ़ता दिख रहा है — अगली मुलाकात में डॉक्टर को बताएं।",
+  "insightCorrelatedVitalsReportTitle": "आपके वाइटल्स की प्रवृत्ति नई रिपोर्ट से भी मेल खाती है",
+  "insightCorrelatedVitalsReportSubtitle": "आपका {vitalLabel} बढ़ रहा है, और आपकी हाल की रिपोर्ट में {metricLabel} भी सामान्य सीमा से बाहर है — दोनों मेल खाते हैं।",
+  "insightCorrelatedWearableVitalsTitle": "ध्यान देने लायक एक पैटर्न",
+  "insightCorrelatedWearableVitalsSubtitle": "जिस समय आपका {vitalLabel} सामान्य सीमा से बाहर था, उसी समय आपके वियरेबल ने असामान्य {wearableSignalLabel, select, sleep{नींद} heartRate{हृदय गति} other{गतिविधि}} दर्ज की।",
+
+  "healthTimelineTitle": "स्वास्थ्य समयरेखा",
+  "healthTimelineViewFullLink": "पूरी समयरेखा देखें",
+  "healthTimelineEmptyState": "अभी तक कुछ दर्ज नहीं है। अपनी समयरेखा शुरू करने के लिए पर्ची स्कैन करें, रिपोर्ट अपलोड करें, या कोई वाइटल दर्ज करें।",
+
+  "timelineLabelMedicine": "दवा",
+  "timelineLabelReport": "रिपोर्ट",
+  "timelineLabelMetric": "मेट्रिक",
+  "timelineLabelSleep": "नींद",
+  "timelineLabelRestingHeartRate": "आराम की हृदय गति",
+  "timelineLabelAdherence": "पालन"
+}

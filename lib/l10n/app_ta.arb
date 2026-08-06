@@ -1,0 +1,82 @@
+{
+  "@@locale": "ta",
+
+  "navHome": "முகப்பு",
+  "navAssistant": "உதவியாளர்",
+  "navScan": "ஸ்கேன்",
+  "navReports": "அறிக்கைகள்",
+  "navProfile": "சுயவிவரம்",
+
+  "dashboardTitle": "சுகாதார டாஷ்போர்டு",
+  "dashboardSubtitle": "உங்கள் மருத்துவ பதிவுகளுடன் ஒத்திசைக்கப்பட்டது",
+  "statMedicines": "மருந்துகள்",
+  "statAlerts": "எச்சரிக்கைகள்",
+  "statAllClear": "எல்லாம் சரி",
+  "statReviewNow": "இப்போது பாருங்கள்",
+  "statScansCount": "{count, plural, =0{0 ஸ்கேன்கள்} =1{1 ஸ்கேன்} other{{count} ஸ்கேன்கள்}}",
+
+  "quickActionsTitle": "விரைவு செயல்கள்",
+  "quickActionMedicineReminder": "மருந்து\nநினைவூட்டல்",
+  "quickActionNearbyPharmacies": "அருகிலுள்ள\nமருந்தகங்கள்",
+  "quickActionHealthRisk": "சுகாதார ரிஸ்க்\nநுண்ணறிவு",
+  "quickActionEmergencyContacts": "அவசர\nதொடர்புகள்",
+  "quickActionGenericSwap": "ஜெனரிக்\nமாற்று",
+
+  "nextDoseLabel": "அடுத்த டோஸ்",
+  "nextDoseNone": "நினைவூட்டல்கள் இல்லை",
+  "nextDoseClear": "எல்லாம் சரியாக உள்ளது",
+
+  "adherenceStreak": "{days, plural, =0{செயலில் உள்ள தொடர்ச்சி இல்லை} =1{1 நாள் தொடர்ச்சி} other{{days} நாள் தொடர்ச்சி}}",
+  "adherenceLabel": "கடைப்பிடிப்பு",
+  "adherenceNoData": "இன்னும் கடைப்பிடிப்பு தரவு இல்லை",
+  "adherenceNoDataHint": "தொடர்ச்சியைத் தொடங்க டோஸை எடுத்தேன் அல்லது தவறவிட்டேன் என குறிக்கவும்.",
+
+  "recentActivityTitle": "சமீபத்திய செயல்பாடு",
+  "viewAll": "அனைத்தையும் காண்க",
+  "noActivityTitle": "இன்னும் செயல்பாடு இல்லை",
+  "noActivityHint": "தொடங்க ஒரு மருந்துச்சீட்டை ஸ்கேன் செய்யவும் அல்லது அறிக்கையை பதிவேற்றவும்.",
+
+  "noNewNotifications": "புதிய அறிவிப்புகள் இல்லை",
+  "comingSoon": "{label} — விரைவில் வரும்",
+
+  "doseSlotMorning": "காலை டோஸ்",
+  "doseSlotAfternoon": "மதிய டோஸ்",
+  "doseSlotNight": "இரவு டோஸ்",
+
+  "activityPrescriptionScan": "மருந்துச்சீட்டு ஸ்கேன்",
+  "activityMedicinesRecorded": "{count, plural, =1{1 மருந்து பதிவு செய்யப்பட்டது} other{{count} மருந்துகள் பதிவு செய்யப்பட்டன}}",
+  "activityAnalysed": "பகுப்பாய்வு முடிந்தது",
+  "activityProcessing": "செயலாக்கத்தில்",
+
+  "insightMedicineFlaggedTitle": "{name} {strength} கொடிமிட்டப்பட்டது",
+  "insightMedicineFlaggedDefaultSubtitle": "விவரங்களைக் காண தட்டவும்",
+  "insightReportDefaultSubtitle": "பகுப்பாய்வைப் பார்க்கவும்",
+  "insightWearableHrTitle": "ஓய்வு இதய துடிப்பு அதிகரித்துள்ளது",
+  "insightWearableHrSubtitle": "இன்று {bpm} bpm — உங்கள் அடுத்த சந்திப்பில் இதைக் குறிப்பிடவும்.",
+  "insightWearableSleepTitle": "நேற்று இரவு குறைவான தூக்கம்",
+  "insightWearableSleepSubtitle": "{hours} மணி நேரம் மட்டுமே பதிவு — தூக்கம் இரத்த அழுத்தம் மற்றும் இரத்த சர்க்கரையை பாதிக்கிறது.",
+  "insightGenericSwapTitle": "{count, plural, =1{ஜெனரிக் மாற்று கிடைக்கிறது} other{{count} மருந்துகளுக்கு ஜெனரிக் மாற்று கிடைக்கிறது}}",
+  "insightGenericSwapSubtitle": "{brandName} இலிருந்து {genericName} க்கு மாறி {savingsLabel} சேமிக்கவும் — ஜெனரிக் மாற்றைப் பார்க்கவும்.",
+  "insightRecentScanTitle": "{count, plural, =1{சமீபத்திய ஸ்கேன் · 1 மருந்து} other{சமீபத்திய ஸ்கேன் · {count} மருந்துகள்}}",
+  "insightRecentScanSubtitleCaptured": "{date} அன்று படமெடுக்கப்பட்டது",
+  "insightRecentScanSubtitleTapToView": "பார்க்க தட்டவும்",
+
+  "insightCorrelatedBadge": "தொடர்புடையது",
+  "insightCorrelatedAdherenceVitalsTitle": "மருந்து தவறியது உங்கள் உயிர் அளவீடுகளை பாதிக்கலாம்",
+  "insightCorrelatedAdherenceVitalsSubtitle": "கடந்த இரண்டு வாரங்களில் உங்கள் மருந்து கடைப்பிடிப்பு சராசரியாக {percent}% ஆக இருந்தது, அதே காலகட்டத்தில் உங்கள் {vitalLabel} அதிகரித்து வருகிறது — உங்கள் அடுத்த சந்திப்பில் இதைக் குறிப்பிடவும்.",
+  "insightCorrelatedVitalsReportTitle": "உங்கள் உயிர் அளவீட்டு போக்கு புதிய அறிக்கையுடன் பொருந்துகிறது",
+  "insightCorrelatedVitalsReportSubtitle": "உங்கள் {vitalLabel} உயர்ந்து வருகிறது, மேலும் உங்கள் சமீபத்திய அறிக்கையில் {metricLabel} இயல்பு வரம்பிற்கு வெளியே உள்ளது — இரண்டும் ஒத்துப்போகின்றன.",
+  "insightCorrelatedWearableVitalsTitle": "கவனிக்க வேண்டிய ஒரு முறை",
+  "insightCorrelatedWearableVitalsSubtitle": "உங்கள் {vitalLabel} இயல்பு வரம்பிற்கு வெளியே இருந்த அதே நேரத்தில், உங்கள் வேரபிள் சாதனம் அசாதாரண {wearableSignalLabel, select, sleep{தூக்கத்தை} heartRate{இதய துடிப்பை} other{செயல்பாட்டை}} பதிவு செய்தது.",
+
+  "healthTimelineTitle": "சுகாதார காலவரிசை",
+  "healthTimelineViewFullLink": "முழு காலவரிசையைக் காண்க",
+  "healthTimelineEmptyState": "இன்னும் எதுவும் பதிவு செய்யப்படவில்லை. உங்கள் காலவரிசையைத் தொடங்க ஒரு மருந்துச்சீட்டை ஸ்கேன் செய்யவும், அறிக்கையை பதிவேற்றவும் அல்லது ஒரு உயிர் அளவீட்டைப் பதிவு செய்யவும்.",
+
+  "timelineLabelMedicine": "மருந்து",
+  "timelineLabelReport": "அறிக்கை",
+  "timelineLabelMetric": "அளவீடு",
+  "timelineLabelSleep": "தூக்கம்",
+  "timelineLabelRestingHeartRate": "ஓய்வு இதய துடிப்பு",
+  "timelineLabelAdherence": "கடைப்பிடிப்பு"
+}

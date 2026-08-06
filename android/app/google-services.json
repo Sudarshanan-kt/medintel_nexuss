@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "691219519209",
+    "project_id": "medintel-nexus",
+    "storage_bucket": "medintel-nexus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:691219519209:android:21bfc9694fc426b2340278",
+        "android_client_info": {
+          "package_name": "com.medintelnexus.medintel_nexus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQeZVsW27oN6lkhVusbvx6l2Ok-CFcx3M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

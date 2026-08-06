@@ -1,0 +1,129 @@
+{
+  "@@locale": "en",
+
+  "navHome": "Home",
+  "@navHome": {"description": "Bottom nav / side rail label"},
+  "navAssistant": "Assistant",
+  "navScan": "Scan",
+  "navReports": "Reports",
+  "navProfile": "Profile",
+
+  "dashboardTitle": "Health dashboard",
+  "dashboardSubtitle": "Synced with your medical records",
+  "statMedicines": "Medicines",
+  "statAlerts": "Alerts",
+  "statAllClear": "All clear",
+  "statReviewNow": "Review now",
+  "statScansCount": "{count, plural, =0{0 scans} =1{1 scan} other{{count} scans}}",
+  "@statScansCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+
+  "quickActionsTitle": "Quick actions",
+  "quickActionMedicineReminder": "Medicine\nReminder",
+  "quickActionNearbyPharmacies": "Nearby\nPharmacies",
+  "quickActionHealthRisk": "Health Risk\nInsights",
+  "quickActionEmergencyContacts": "Emergency\nContacts",
+  "quickActionGenericSwap": "Generic\nSwap",
+
+  "nextDoseLabel": "NEXT DOSE",
+  "nextDoseNone": "No pending reminders",
+  "nextDoseClear": "Everything is clear",
+
+  "adherenceStreak": "{days, plural, =0{No active streak} =1{1-day streak} other{{days}-day streak}}",
+  "@adherenceStreak": {
+    "placeholders": {"days": {"type": "int"}}
+  },
+  "adherenceLabel": "Adherence",
+  "adherenceNoData": "No adherence data yet",
+  "adherenceNoDataHint": "Mark doses taken or missed to start a streak.",
+
+  "recentActivityTitle": "Recent activity",
+  "viewAll": "View all",
+  "noActivityTitle": "No activity yet",
+  "noActivityHint": "Scan a prescription or upload a report to get started.",
+
+  "noNewNotifications": "No new notifications",
+  "comingSoon": "{label} — coming soon",
+  "@comingSoon": {
+    "placeholders": {"label": {"type": "String"}}
+  },
+
+  "doseSlotMorning": "Morning dose",
+  "doseSlotAfternoon": "Afternoon dose",
+  "doseSlotNight": "Night dose",
+
+  "activityPrescriptionScan": "Prescription scan",
+  "activityMedicinesRecorded": "{count, plural, =1{1 medicine recorded} other{{count} medicines recorded}}",
+  "@activityMedicinesRecorded": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "activityAnalysed": "Analysed",
+  "activityProcessing": "Processing",
+
+  "insightMedicineFlaggedTitle": "{name} {strength} flagged",
+  "@insightMedicineFlaggedTitle": {
+    "placeholders": {"name": {"type": "String"}, "strength": {"type": "String"}}
+  },
+  "insightMedicineFlaggedDefaultSubtitle": "Tap to view details",
+  "insightReportDefaultSubtitle": "Review the analysis",
+  "insightWearableHrTitle": "Resting heart rate elevated",
+  "insightWearableHrSubtitle": "{bpm} bpm today — worth mentioning at your next check-in.",
+  "@insightWearableHrSubtitle": {
+    "placeholders": {"bpm": {"type": "int"}}
+  },
+  "insightWearableSleepTitle": "Short sleep last night",
+  "insightWearableSleepSubtitle": "Only {hours}h logged — sleep affects blood pressure and glucose control.",
+  "@insightWearableSleepSubtitle": {
+    "placeholders": {"hours": {"type": "String"}}
+  },
+  "insightGenericSwapTitle": "{count, plural, =1{Generic swap available} other{Generic swaps available for {count} medicines}}",
+  "@insightGenericSwapTitle": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "insightGenericSwapSubtitle": "Save {savingsLabel} switching {brandName} to {genericName} — see Generic Swap.",
+  "@insightGenericSwapSubtitle": {
+    "placeholders": {
+      "savingsLabel": {"type": "String"},
+      "brandName": {"type": "String"},
+      "genericName": {"type": "String"}
+    }
+  },
+  "insightRecentScanTitle": "{count, plural, =1{Recent scan · 1 medicine} other{Recent scan · {count} medicines}}",
+  "@insightRecentScanTitle": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "insightRecentScanSubtitleCaptured": "Captured {date}",
+  "@insightRecentScanSubtitleCaptured": {
+    "placeholders": {"date": {"type": "String"}}
+  },
+  "insightRecentScanSubtitleTapToView": "Tap to view",
+
+  "insightCorrelatedBadge": "Correlated",
+  "insightCorrelatedAdherenceVitalsTitle": "Adherence drop may be affecting your vitals",
+  "insightCorrelatedAdherenceVitalsSubtitle": "Your medicine adherence averaged {percent}% over the last two weeks, and your {vitalLabel} has been trending up in the same window — worth flagging at your next visit.",
+  "@insightCorrelatedAdherenceVitalsSubtitle": {
+    "placeholders": {"percent": {"type": "int"}, "vitalLabel": {"type": "String"}}
+  },
+  "insightCorrelatedVitalsReportTitle": "Vitals trend confirmed by your latest labs",
+  "insightCorrelatedVitalsReportSubtitle": "Your {vitalLabel} has been rising, and your recent report's {metricLabel} is also out of range — the two line up.",
+  "@insightCorrelatedVitalsReportSubtitle": {
+    "placeholders": {"vitalLabel": {"type": "String"}, "metricLabel": {"type": "String"}}
+  },
+  "insightCorrelatedWearableVitalsTitle": "A pattern worth watching",
+  "insightCorrelatedWearableVitalsSubtitle": "Your {vitalLabel} was out of range around the same time your wearable logged unusual {wearableSignalLabel, select, sleep{sleep} heartRate{heart rate} other{activity}}.",
+  "@insightCorrelatedWearableVitalsSubtitle": {
+    "placeholders": {"vitalLabel": {"type": "String"}, "wearableSignalLabel": {"type": "String"}}
+  },
+
+  "healthTimelineTitle": "Health timeline",
+  "healthTimelineViewFullLink": "View full timeline",
+  "healthTimelineEmptyState": "Nothing logged yet. Scan a prescription, upload a report, or log a vital to start building your timeline.",
+
+  "timelineLabelMedicine": "Medicine",
+  "timelineLabelReport": "Report",
+  "timelineLabelMetric": "Metric",
+  "timelineLabelSleep": "Sleep",
+  "timelineLabelRestingHeartRate": "Resting heart rate",
+  "timelineLabelAdherence": "Adherence"
+}

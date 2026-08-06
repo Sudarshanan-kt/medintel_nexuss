@@ -1,0 +1,111 @@
+name: medintel_nexus
+description: >-
+  MedIntel Nexus — AI-Powered Clinical Intelligence & Prescription Risk
+  Analysis Platform. Premium, enterprise-grade healthcare SaaS client
+  (patient app + clinic web dashboard) built on Flutter + Riverpod.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Supabase Auth
+  supabase_flutter: ^2.5.0
+  google_sign_in: ^6.2.0
+  # google_sign_in_web must stay a direct dependency even though its Dart API
+  # (web_only.dart) is no longer called directly — it's still what registers
+  # GoogleSignInPlatform's web implementation, which the native `GoogleSignIn()`
+  # flow's plugin resolution needs at build time.
+  google_sign_in_web: ^0.12.4
+  # Imported directly (not just transitively) for the web-only "Sign in with
+  # Google" button, which drives Google's Identity Services JS API and its
+  # own script loader directly — see
+  # lib/features/auth/presentation/google_web_button_web.dart.
+  google_identity_services_web: ^0.3.3
+  web: ^1.1.0
+  local_auth: ^2.3.0
+  flutter_dotenv: ^5.1.0
+
+  # Networking
+  dio: ^5.5.0
+  connectivity_plus: ^6.0.3
+
+  # Maps & location (Nearby Pharmacies — free OpenStreetMap, no API key)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.1
+
+  # Local persistence (offline-first)
+  # isar: ^3.1.0           # add back when wiring the offline store
+  # isar_flutter_libs: ^3.1.0
+  flutter_secure_storage: ^9.2.2
+  path_provider: ^2.1.3
+  shared_preferences: ^2.3.2
+  crypto: ^3.0.3
+
+  # UI / design system
+  google_fonts: ^6.2.1
+  lottie: ^3.1.2
+  shimmer: ^3.0.0
+  flutter_svg: ^2.0.10+1
+
+  # Feature support
+  camera: ^0.11.0
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
+  intl: ^0.20.2
+  url_launcher: ^6.3.0
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.4
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Push notifications (Care Circle missed-dose alerts, server-triggered
+  # risk alerts). FCM only — Supabase remains the database/auth provider.
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+
+  # Wearable integration — Health Connect (Android) / HealthKit (iOS, not
+  # yet a platform in this project). Feeds steps/heart rate/sleep into risk
+  # scoring; never a hard dependency (best-effort, same as push).
+  health: ^13.3.1
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  fl_chart: ^1.2.0
+  google_mlkit_text_recognition: ^0.16.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.0
+  # isar_generator: ^3.1.0   # re-enable with isar
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/images/
+    - assets/icons/
+    - assets/lottie/
+    - assets/demo/
