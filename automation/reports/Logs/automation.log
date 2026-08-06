@@ -1177,3 +1177,17 @@
 2026-08-06 11:45:51,854 - INFO - [summary_generator.py:55] - Critical Failure Rate: 0.00% (Threshold: <= 5.00%)
 2026-08-06 11:45:51,854 - INFO - [summary_generator.py:56] - ========================================
 2026-08-06 11:45:51,854 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
+2026-08-06 12:08:49,337 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-06 12:08:51,399 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-06 12:08:51,400 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify authentication scenario variant 001: Verify user identity authentication mechanism
+2026-08-06 12:08:51,868 - WARNING - [scenario_runner.py:40] - SEVERE browser log detected: https://sudarshanan-kt.github.io/medintel_nexuss/ - Failed to load resource: the server responded with a status of 404 ()
+2026-08-06 12:09:01,885 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-06 12:09:01,888 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0002] [Authentication] - Verify authentication scenario variant 002: Verify user identity authentication mechanism
+2026-08-06 12:09:11,909 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-06 12:09:11,912 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0003] [Authentication] - Verify authentication scenario variant 003: Verify user identity authentication mechanism
+2026-08-06 12:09:21,976 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-06 12:09:21,979 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0004] [Authentication] - Verify authentication scenario variant 004: Verify user identity authentication mechanism
+2026-08-06 12:09:32,042 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-06 12:09:32,045 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0005] [Authentication] - Verify authentication scenario variant 005: Verify user identity authentication mechanism
+2026-08-06 12:09:42,084 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-06 12:09:42,086 - INFO - [scenario_runner.py:131] - Starting test case: [TC_FUNC_0006] [Authentication] - Verify authentication scenario variant 006: Verify user identity authentication mechanism

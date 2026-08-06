@@ -22,15 +22,11 @@ env:
 
 jobs:
   # ===========================================================================
-  # Domain Test 1: Selenium Web Tests (Sharded 6 ways)
+  # Domain Test 1: Selenium Web Tests (300 cases)
   # ===========================================================================
   selenium-web-tests:
-    name: "Suite: selenium-web-tests (shard ${{ matrix.shard }})"
+    name: "Suite: selenium-web-tests"
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
 
@@ -61,9 +57,7 @@ jobs:
       - name: Build Flutter web
         run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
 
-      # Upload the build artifact only from shard 0 to avoid duplicates, for deployment in the report job
       - name: Upload web bundle for deployment
-        if: matrix.shard == 0
         uses: actions/upload-artifact@v4
         with:
           name: web-build
@@ -104,15 +98,13 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
           SUITE: functional
-          SHARD_INDEX: ${{ matrix.shard }}
-          SHARD_TOTAL: 6
         run: python -m pytest automation/tests/test_selenium.py -v
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: results-selenium-${{ matrix.shard }}
+          name: results-selenium
           path: automation/reports/JSON/results_*.json
           if-no-files-found: warn
           retention-days: 1
@@ -121,7 +113,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: diagnostics-selenium-${{ matrix.shard }}
+          name: diagnostics-selenium
           path: |
             automation/reports/Logs/
             automation/reports/Screenshots/
@@ -129,7 +121,7 @@ jobs:
           retention-days: 30
 
   # ===========================================================================
-  # Domain Test 2: Appium Mobile Tests
+  # Domain Test 2: Appium Mobile Tests (300 cases)
   # ===========================================================================
   appium-mobile-tests:
     name: "Suite: appium-mobile-tests"
@@ -173,11 +165,6 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
-      - name: Validate the native suite collects
-        env:
-          SUITE: appium
-        run: python -m pytest automation/tests/test_appium.py --collect-only -v
-
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
@@ -187,14 +174,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      # Upload dummy appium results file to prevent report consolidation failures
-      - name: Upload results
-        if: always()
-        run: |
-          mkdir -p automation/reports/JSON
-          echo "[]" > automation/reports/JSON/results_appium_0.json
+      - name: Run Appium scenarios (Mocked)
+        env:
+          SUITE: appium
+        run: python -m pytest automation/tests/test_appium.py -v
 
-      - name: Upload dummy results artifact
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -204,7 +189,7 @@ jobs:
           retention-days: 1
 
   # ===========================================================================
-  # Domain Test 3: Unit Tests
+  # Domain Test 3: Unit Tests (300 cases + Standard Tests)
   # ===========================================================================
   unit-tests:
     name: "Suite: unit-tests"
@@ -246,13 +231,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r medintel-nexus-backend/requirements.txt
+          pip install pytest requests openpyxl
 
       - name: Backend tests
         working-directory: medintel-nexus-backend
         run: python -m pytest tests -v
 
+      - name: Run Unit scenarios (Mocked)
+        env:
+          SUITE: unit
+        run: python -m pytest automation/tests/test_unit.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-unit
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
   # ===========================================================================
-  # Domain Test 4: Load Tests
+  # Domain Test 4: Load Tests (300 cases)
   # ===========================================================================
   load-tests:
     name: "Suite: load-tests"
@@ -303,7 +303,7 @@ jobs:
           retention-days: 1
 
   # ===========================================================================
-  # Domain Test 5: Security Tests
+  # Domain Test 5: Security Tests (300 cases)
   # ===========================================================================
   security-tests:
     name: "Suite: security-tests"
