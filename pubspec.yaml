@@ -88,7 +88,7 @@ dependencies:
   pdf: ^3.12.0
   printing: ^5.14.3
   fl_chart: ^1.2.0
-  google_mlkit_text_recognition: ^0.16.0
+  google_mlkit_text_recognition: ^0.15.0
 
 dev_dependencies:
   flutter_test:
