@@ -94,7 +94,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-selenium
-          path: automation/reports/JSON/results_*.json
+          path: |
+            automation/reports/JSON/results_*.json
+            automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
           retention-days: 1
 
@@ -150,7 +152,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-appium
-          path: automation/reports/JSON/results_*.json
+          path: |
+            automation/reports/JSON/results_*.json
+            automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
           retention-days: 1
 
@@ -213,7 +217,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-unit
-          path: automation/reports/JSON/results_*.json
+          path: |
+            automation/reports/JSON/results_*.json
+            automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
           retention-days: 1
 
@@ -264,7 +270,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-load
-          path: automation/reports/JSON/results_*.json
+          path: |
+            automation/reports/JSON/results_*.json
+            automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
           retention-days: 1
 
@@ -316,7 +324,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-security
-          path: automation/reports/JSON/results_*.json
+          path: |
+            automation/reports/JSON/results_*.json
+            automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
           retention-days: 1
 

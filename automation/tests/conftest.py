@@ -72,6 +72,12 @@ def pytest_sessionfinish(session, exitstatus):
     os.makedirs(Config.JSON_DIR, exist_ok=True)
     results = list(results_collector.RESULTS)
     ReportGenerator.save_intermediate_results(Config.result_file_name(), results)
+    
+    # Generate per-suite Excel report
+    excel_filename = f"results_{Config.SUITE}.xlsx"
+    excel_path = os.path.join(Config.JSON_DIR, excel_filename)
+    ReportGenerator.generate_single_excel_report(results, excel_path)
+    
     logger.info(
         f"Pytest session finished. Wrote {len(results)} results for "
         f"suite={Config.SUITE} shard={Config.SHARD_INDEX}/{Config.SHARD_TOTAL}."

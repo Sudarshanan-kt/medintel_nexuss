@@ -75,11 +75,16 @@ class ReportGenerator:
         
         return True
 
-    @staticmethod
-    def generate_excel_reports(results: list):
-        """Generates all Excel spreadsheets with professional styling."""
+    @classmethod
+    def generate_excel_reports(cls, results: list):
+        """Generates the master Excel test report."""
         os.makedirs(Config.EXCEL_DIR, exist_ok=True)
-        
+        filepath = os.path.join(Config.EXCEL_DIR, "Automation_Test_Report.xlsx")
+        cls.generate_single_excel_report(results, filepath)
+
+    @staticmethod
+    def generate_single_excel_report(results: list, filepath: str):
+        """Generates a single Excel sheet with professional styling from the provided results."""
         # Style Definitions
         font_header = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
         font_body = Font(name="Segoe UI", size=10)
@@ -115,61 +120,49 @@ class ReportGenerator:
                         max_len = len(val)
                 ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
-        # ----------------------------------------------------
-        # 1. Automation_Test_Report.xlsx (All Cases)
-        # 2. Passed_Test_Cases.xlsx
-        # 3. Failed_Test_Cases.xlsx
-        # ----------------------------------------------------
-        reports_mapping = {
-            "Automation_Test_Report.xlsx": results
-        }
-        
         headers = ["Test ID", "Type", "Module", "Title / Test Name", "Status", "Duration (s)"]
         
-        for filename, data in reports_mapping.items():
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Test Cases"
-            ws.views.sheetView[0].showGridLines = True
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Test Cases"
+        ws.views.sheetView[0].showGridLines = True
+        
+        # Header Row
+        for col_idx, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=h)
+            cell.font = font_header
+            cell.fill = fill_header
+            cell.alignment = align_center
+        
+        # Data Rows
+        for row_idx, r in enumerate(results, 2):
+            row_data = [
+                r["id"], r["type"], r["module"], r["title"],
+                r["status"], round(r["execution_time"], 3)
+            ]
             
-            # Header Row
-            for col_idx, h in enumerate(headers, 1):
-                cell = ws.cell(row=1, column=col_idx, value=h)
-                cell.font = font_header
-                cell.fill = fill_header
-                cell.alignment = align_center
-            
-            # Data Rows
-            for row_idx, r in enumerate(data, 2):
-                row_data = [
-                    r["id"], r["type"], r["module"], r["title"],
-                    r["status"], round(r["execution_time"], 3)
-                ]
+            for col_idx, val in enumerate(row_data, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = font_body
+                cell.border = border_thin
                 
-                for col_idx, val in enumerate(row_data, 1):
-                    cell = ws.cell(row=row_idx, column=col_idx, value=val)
-                    cell.font = font_body
-                    cell.border = border_thin
+                if col_idx in [1, 2, 3, 5, 6]:
+                    cell.alignment = align_center
+                else:
+                    cell.alignment = align_left_wrap
                     
-                    if col_idx in [1, 2, 3, 5, 6]:
-                        cell.alignment = align_center
+                # Format Status Cell
+                if col_idx == 5:
+                    if val == "Passed":
+                        cell.fill = fill_pass
+                    elif val == "Failed":
+                        cell.fill = fill_fail
                     else:
-                        cell.alignment = align_left_wrap
+                        cell.fill = fill_skip
                         
-                    # Format Status Cell
-                    if col_idx == 5:
-                        if val == "Passed":
-                            cell.fill = fill_pass
-                        elif val == "Failed":
-                            cell.fill = fill_fail
-                        else:
-                            cell.fill = fill_skip
-                            
-            format_sheet(ws)
-            wb.save(os.path.join(Config.EXCEL_DIR, filename))
-            logger.info(f"Exported Excel report: {filename}")
-
-        # Non-master Excel reports (Passed, Failed, Summary) are removed per user request.
+        format_sheet(ws)
+        wb.save(filepath)
+        logger.info(f"Exported Excel report: {os.path.basename(filepath)}")
 
     @staticmethod
     def generate_html_reports(results: list):
