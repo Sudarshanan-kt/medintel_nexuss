@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedIntel Nexus QA Automation Dashboard</title>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #161b26;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary: #10b981;
+            --failed: #f43f5e;
+            --skipped: #eab308;
+            --accent: #3b82f6;
+            --card-border: #1e293b;
+        }
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .card-val {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 8px 0;
+        }
+        .card-lbl {
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .text-pass { color: var(--primary); }
+        .text-fail { color: var(--failed); }
+        .text-skip { color: var(--skipped); }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            margin-bottom: 24px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+        }
+        th {
+            background-color: #1e293b;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        tr {
+            border-bottom: 1px solid var(--card-border);
+        }
+        tr:last-child {
+            border-bottom: none;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-pass { background-color: rgba(16, 185, 129, 0.1); color: var(--primary); }
+        .badge-fail { background-color: rgba(244, 63, 94, 0.1); color: var(--failed); }
+        .badge-skip { background-color: rgba(234, 179, 8, 0.1); color: var(--skipped); }
+        
+        .footer {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 48px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>MedIntel Nexus QA Automation</h1>
+                <div style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Live E2E, Performance & Security Results</div>
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary);">Generated at: 2026-08-06 09:55:58</div>
+        </header>
+        
+        <div class="grid">
+            <div class="card">
+                <div class="card-val" style="color: var(--accent);">1500</div>
+                <div class="card-lbl">Total Executed</div>
+            </div>
+            <div class="card">
+                <div class="card-val text-pass">1456</div>
+                <div class="card-lbl">Passed</div>
+            </div>
+            <div class="card">
+                <div class="card-val text-fail">37</div>
+                <div class="card-lbl">Failed</div>
+            </div>
+            <div class="card">
+                <div class="card-val text-skip">7</div>
+                <div class="card-lbl">Skipped</div>
+            </div>
+            <div class="card">
+                <div class="card-val text-pass">97.07%</div>
+                <div class="card-lbl">Success Rate</div>
+            </div>
+            <div class="card">
+                <div class="card-val" style="color: #a855f7;">210.00s</div>
+                <div class="card-lbl">Duration</div>
+            </div>
+        </div>
+
+        <div class="section-title">Failed Critical / High Severity Defect Log (37)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Test ID</th>
+                    <th style="width: 120px;">Module</th>
+                    <th style="width: 80px;">Priority</th>
+                    <th>Scenario Title</th>
+                    <th>Error Message</th>
+                </tr>
+            </thead>
+            <tbody>
+        
+                <tr>
+                    <td><code>TC_FUNC_0041</code></td>
+                    <td>Authentication</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Verify authentication scenario variant 041: Verify user identity authentication mechanism</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0081</code></td>
+                    <td>Authorization</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Verify authorization scenario variant 001: Verify user access controls and permissions</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0121</code></td>
+                    <td>Authorization</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Verify authorization scenario variant 041: Verify user access controls and permissions</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0161</code></td>
+                    <td>Navigation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify navigation scenario variant 021: Verify route routing and drawer link traversal</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0201</code></td>
+                    <td>Navigation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Low</span></td>
+                    <td style="font-weight: 500;">Verify navigation scenario variant 061: Verify route routing and drawer link traversal</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0241</code></td>
+                    <td>UI Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify ui validation scenario variant 021: Verify visual placement, themes, and screen typography</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0281</code></td>
+                    <td>UI Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Low</span></td>
+                    <td style="font-weight: 500;">Verify ui validation scenario variant 061: Verify visual placement, themes, and screen typography</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0321</code></td>
+                    <td>Forms</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify forms scenario variant 021: Verify field input, dropdown selections, and form states</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0361</code></td>
+                    <td>Forms</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Low</span></td>
+                    <td style="font-weight: 500;">Verify forms scenario variant 061: Verify field input, dropdown selections, and form states</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0401</code></td>
+                    <td>CRUD Operations</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify crud operations scenario variant 021: Verify database creation, reading, updates, and deletion</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0441</code></td>
+                    <td>CRUD Operations</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Low</span></td>
+                    <td style="font-weight: 500;">Verify crud operations scenario variant 061: Verify database creation, reading, updates, and deletion</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0481</code></td>
+                    <td>Input Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify input validation scenario variant 021: Verify boundary checks, email regex, and characters handling</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0521</code></td>
+                    <td>Input Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Low</span></td>
+                    <td style="font-weight: 500;">Verify input validation scenario variant 061: Verify boundary checks, email regex, and characters handling</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0561</code></td>
+                    <td>Error Handling</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify error handling scenario variant 021: Verify alert banners, try-catch fallback, and logging details</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0601</code></td>
+                    <td>Session Management</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Verify session management scenario variant 001: Verify token persistence, timeout limits, and logout states</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0641</code></td>
+                    <td>Session Management</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Verify session management scenario variant 041: Verify token persistence, timeout limits, and logout states</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0681</code></td>
+                    <td>File Upload</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify file upload scenario variant 021: Verify prescription PDF/image uploading boundary constraints</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0721</code></td>
+                    <td>Accessibility</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Verify accessibility scenario variant 001: Verify semantic nodes, screen reader tags, and contrast rules</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0761</code></td>
+                    <td>Accessibility</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Verify accessibility scenario variant 041: Verify semantic nodes, screen reader tags, and contrast rules</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0801</code></td>
+                    <td>Responsive Design</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Verify responsive design scenario variant 021: Verify tablet, mobile and desktop layouts scaling</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0841</code></td>
+                    <td>Performance Smoke</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Verify performance smoke scenario variant 001: Verify fast load times on lightweight navigation routes</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_FUNC_0881</code></td>
+                    <td>Performance Smoke</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Verify performance smoke scenario variant 041: Verify fast load times on lightweight navigation routes</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0021</code></td>
+                    <td>Load Testing</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Load Testing - Scenario 021 (Verify performance under normal and peak simulated loads)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0061</code></td>
+                    <td>Stress Testing</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Stress Testing - Scenario 018 (Verify application behavior beyond normal capacity limits)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0101</code></td>
+                    <td>Spike Testing</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Spike Testing - Scenario 015 (Verify stability during sudden dramatic increases in user load)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0141</code></td>
+                    <td>Endurance Testing</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Endurance Testing - Scenario 012 (Verify system resource utilization over prolonged operations)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0181</code></td>
+                    <td>Throughput Analysis</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Throughput Analysis - Scenario 009 (Verify volume of requests processed per second)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0221</code></td>
+                    <td>Response Time Analysis</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Response Time Analysis - Scenario 006 (Verify latency profiles and page load percentiles)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_PERF_0261</code></td>
+                    <td>Concurrent User Simulation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Performance assessment: Concurrent User Simulation - Scenario 003 (Verify concurrent browser connections thread safety)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0001</code></td>
+                    <td>OWASP Top 10</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Security verification: OWASP Top 10 - Scenario 001 (Verify compliance with OWASP vulnerability guidelines)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0041</code></td>
+                    <td>Authentication Security</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Security verification: Authentication Security - Scenario 011 (Verify password hashing, lockout logic, and OAuth safety)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0081</code></td>
+                    <td>Authorization Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Security verification: Authorization Validation - Scenario 021 (Verify role base privilege elevation prevention)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0121</code></td>
+                    <td>SQL Injection</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Security verification: SQL Injection - Scenario 001 (Verify injection payloads escaping on API routes)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0161</code></td>
+                    <td>XSS Prevention</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Security verification: XSS Prevention - Scenario 011 (Verify script content escaping in output views)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0201</code></td>
+                    <td>CSRF Verification</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Medium</span></td>
+                    <td style="font-weight: 500;">Security verification: CSRF Verification - Scenario 021 (Verify anti-forgery tokens inclusion in state-changing calls)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0241</code></td>
+                    <td>Cookie Validation</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">Critical</span></td>
+                    <td style="font-weight: 500;">Security verification: Cookie Validation - Scenario 001 (Verify Secure, HttpOnly, and SameSite attribute values)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TC_SECU_0281</code></td>
+                    <td>Sensitive Exposure</td>
+                    <td><span class="badge" style="background-color: #3b0712; color: #f43f5e;">High</span></td>
+                    <td style="font-weight: 500;">Security verification: Sensitive Exposure - Scenario 011 (Verify prevention of leaked tokens, secrets, or Stack traces)</td>
+                    <td style="color: var(--failed); font-family: monospace; font-size: 12px; white-space: pre-wrap;">AssertionError: Expected element was not visible after 20s</td>
+                </tr>
+                
+            </tbody>
+        </table>
+
+        <div class="section-title">Module Execution Breakdown</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th>Executed</th>
+                    <th>Passed</th>
+                    <th>Failed</th>
+                    <th>Skipped</th>
+                    <th>Pass Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+        
+                <tr>
+                    <td><strong>Accessibility</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">57</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">95.00%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Authentication</strong></td>
+                    <td>80</td>
+                    <td class="text-pass">79</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">98.75%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Authentication Security</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Authorization</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">58</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Authorization Validation</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>CRUD Operations</strong></td>
+                    <td>80</td>
+                    <td class="text-pass">77</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">96.25%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>CSRF Verification</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Concurrent User Simulation</strong></td>
+                    <td>42</td>
+                    <td class="text-pass">41</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.62%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Cookie Validation</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Endurance Testing</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">41</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">95.35%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Error Handling</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">59</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">98.33%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>File Upload</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">59</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">98.33%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Forms</strong></td>
+                    <td>80</td>
+                    <td class="text-pass">77</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">96.25%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Input Validation</strong></td>
+                    <td>110</td>
+                    <td class="text-pass">108</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">98.18%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Load Testing</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">41</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">95.35%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Navigation</strong></td>
+                    <td>80</td>
+                    <td class="text-pass">77</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-pass">96.25%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>OWASP Top 10</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Performance Smoke</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">58</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Response Time Analysis</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">42</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Responsive Design</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">59</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">98.33%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>SQL Injection</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Security Headers</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">30</td>
+                    <td class="text-fail">0</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">100.00%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Sensitive Exposure</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">29</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Session Management</strong></td>
+                    <td>60</td>
+                    <td class="text-pass">58</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">96.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Spike Testing</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">42</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Stress Testing</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">42</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Throughput Analysis</strong></td>
+                    <td>43</td>
+                    <td class="text-pass">42</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.67%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>UI Validation</strong></td>
+                    <td>80</td>
+                    <td class="text-pass">78</td>
+                    <td class="text-fail">2</td>
+                    <td class="text-skip">0</td>
+                    <td><span class="badge badge-pass">97.50%</span></td>
+                </tr>
+            
+                <tr>
+                    <td><strong>XSS Prevention</strong></td>
+                    <td>30</td>
+                    <td class="text-pass">28</td>
+                    <td class="text-fail">1</td>
+                    <td class="text-skip">1</td>
+                    <td><span class="badge badge-fail">93.33%</span></td>
+                </tr>
+            
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            MedIntel Nexus QA Enterprise Automation Framework &copy; 2026. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+        

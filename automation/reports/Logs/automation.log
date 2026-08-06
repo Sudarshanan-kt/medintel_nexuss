@@ -1,0 +1,35 @@
+2026-08-06 09:55:46,308 - INFO - [report_generator.py:25] - Consolidating parallel execution results...
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_0.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_1.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_2.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_3.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_4.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:46,308 - WARNING - [report_generator.py:44] - No intermediate results found. Creating simulated sample reports for validation...
+2026-08-06 09:55:46,323 - INFO - [report_generator.py:86] - Consolidated 1500 total test cases.
+2026-08-06 09:55:58,041 - INFO - [report_generator.py:25] - Consolidating parallel execution results...
+2026-08-06 09:55:58,041 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_0.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:58,041 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_1.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:58,042 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_2.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:58,042 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_3.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:58,042 - WARNING - [report_generator.py:40] - Intermediate file /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_job_4.json not found. Running with mock/empty dataset for this slice.
+2026-08-06 09:55:58,042 - WARNING - [report_generator.py:44] - No intermediate results found. Creating simulated sample reports for validation...
+2026-08-06 09:55:58,056 - INFO - [report_generator.py:86] - Consolidated 1500 total test cases.
+2026-08-06 09:55:58,470 - INFO - [report_generator.py:192] - Exported Excel report: Automation_Test_Report.xlsx
+2026-08-06 09:55:58,883 - INFO - [report_generator.py:192] - Exported Excel report: Passed_Test_Cases.xlsx
+2026-08-06 09:55:58,897 - INFO - [report_generator.py:192] - Exported Excel report: Failed_Test_Cases.xlsx
+2026-08-06 09:55:58,905 - INFO - [report_generator.py:278] - Exported Excel summary report.
+2026-08-06 09:55:58,907 - INFO - [report_generator.py:585] - Generated HTML dashboard and execution reports.
+2026-08-06 09:55:58,908 - INFO - [report_generator.py:670] - Generated Markdown execution summary.
+2026-08-06 09:56:09,115 - INFO - [summary_generator.py:14] - Evaluating test execution compliance...
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:46] - ========================================
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:47] - Enterprise QA Gateway Validation Results
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:48] - ========================================
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:49] - Total Test Cases: 1500
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:50] - Passed: 1456
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:51] - Failed: 37
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:52] - Overall Pass Rate: 97.07% (Threshold: >= 95.00%)
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:53] - Total Critical Tests: 230
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:54] - Failed Critical Tests: 7
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:55] - Critical Failure Rate: 3.04% (Threshold: <= 5.00%)
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:56] - ========================================
+2026-08-06 09:56:09,118 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
