@@ -4237,3 +4237,26 @@
 2026-08-06 12:32:16,331 - INFO - [summary_generator.py:55] - Critical Failure Rate: 0.00% (Threshold: <= 5.00%)
 2026-08-06 12:32:16,331 - INFO - [summary_generator.py:56] - ========================================
 2026-08-06 12:32:16,331 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
+2026-08-06 13:25:23,249 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
+2026-08-06 13:25:23,251 - INFO - [report_generator.py:54] - Loaded 300 results from results_appium_0.json
+2026-08-06 13:25:23,252 - INFO - [report_generator.py:54] - Loaded 300 results from results_functional_0.json
+2026-08-06 13:25:23,253 - INFO - [report_generator.py:54] - Loaded 300 results from results_performance_0.json
+2026-08-06 13:25:23,254 - INFO - [report_generator.py:54] - Loaded 300 results from results_security_0.json
+2026-08-06 13:25:23,255 - INFO - [report_generator.py:54] - Loaded 300 results from results_unit_0.json
+2026-08-06 13:25:23,268 - INFO - [report_generator.py:69] - Consolidated 1500 total test cases.
+2026-08-06 13:25:23,486 - INFO - [report_generator.py:170] - Exported Excel report: Automation_Test_Report.xlsx
+2026-08-06 13:25:23,489 - INFO - [report_generator.py:479] - Generated HTML dashboard and execution reports.
+2026-08-06 13:25:23,490 - INFO - [report_generator.py:564] - Generated Markdown execution summary.
+2026-08-06 13:25:31,816 - INFO - [summary_generator.py:14] - Evaluating test execution compliance...
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:46] - ========================================
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:47] - Enterprise QA Gateway Validation Results
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:48] - ========================================
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:49] - Total Test Cases: 1500
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:50] - Passed: 1500
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:51] - Failed: 0
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:52] - Overall Pass Rate: 100.00% (Threshold: >= 95.00%)
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:53] - Total Critical Tests: 160
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:54] - Failed Critical Tests: 0
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:55] - Critical Failure Rate: 0.00% (Threshold: <= 5.00%)
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:56] - ========================================
+2026-08-06 13:25:31,821 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.

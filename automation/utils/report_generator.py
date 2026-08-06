@@ -121,9 +121,7 @@ class ReportGenerator:
         # 3. Failed_Test_Cases.xlsx
         # ----------------------------------------------------
         reports_mapping = {
-            "Automation_Test_Report.xlsx": results,
-            "Passed_Test_Cases.xlsx": [r for r in results if r["status"] == "Passed"],
-            "Failed_Test_Cases.xlsx": [r for r in results if r["status"] == "Failed"]
+            "Automation_Test_Report.xlsx": results
         }
         
         headers = ["Test ID", "Type", "Module", "Title / Test Name", "Status", "Duration (s)"]
@@ -171,91 +169,7 @@ class ReportGenerator:
             wb.save(os.path.join(Config.EXCEL_DIR, filename))
             logger.info(f"Exported Excel report: {filename}")
 
-        # ----------------------------------------------------
-        # 4. Summary_Report.xlsx
-        # ----------------------------------------------------
-        wb_sum = Workbook()
-        ws_sum = wb_sum.active
-        ws_sum.title = "Execution Summary"
-        ws_sum.views.sheetView[0].showGridLines = True
-        
-        # High level counts
-        total = len(results)
-        passed = len([r for r in results if r["status"] == "Passed"])
-        failed = len([r for r in results if r["status"] == "Failed"])
-        skipped = len([r for r in results if r["status"] == "Skipped"])
-        pass_rate = (passed / total * 100) if total > 0 else 0
-        total_duration = sum(r["execution_time"] for r in results)
-        
-        ws_sum.cell(row=1, column=1, value="MedIntel Nexus — Test Summary").font = font_title
-        ws_sum.merge_cells("A1:D1")
-        
-        summary_headers = ["Metric", "Value"]
-        for col_idx, h in enumerate(summary_headers, 1):
-            cell = ws_sum.cell(row=3, column=col_idx, value=h)
-            cell.font = font_header
-            cell.fill = fill_header
-            cell.alignment = align_center
-            
-        summary_rows = [
-            ("Total Executed", total),
-            ("Passed Tests", passed),
-            ("Failed Tests", failed),
-            ("Skipped Tests", skipped),
-            ("Overall Pass Rate", f"{pass_rate:.2f}%"),
-            ("Total Duration", f"{total_duration:.2f} seconds")
-        ]
-        
-        for idx, (m, v) in enumerate(summary_rows, 4):
-            cell_m = ws_sum.cell(row=idx, column=1, value=m)
-            cell_v = ws_sum.cell(row=idx, column=2, value=v)
-            cell_m.font = font_body
-            cell_m.border = border_thin
-            cell_v.font = font_bold
-            cell_v.border = border_thin
-            cell_v.alignment = align_center
-            
-            if m == "Passed Tests":
-                cell_v.fill = fill_pass
-            elif m == "Failed Tests":
-                cell_v.fill = fill_fail
-            elif m == "Skipped Tests":
-                cell_v.fill = fill_skip
-                
-        # Module-wise breakdown
-        ws_sum.cell(row=12, column=1, value="Module Breakdown").font = Font(name="Segoe UI", size=13, bold=True, color="1B365D")
-        breakdown_headers = ["Module", "Executed", "Passed", "Failed", "Pass %"]
-        for col_idx, h in enumerate(breakdown_headers, 1):
-            cell = ws_sum.cell(row=14, column=col_idx, value=h)
-            cell.font = font_header
-            cell.fill = fill_header
-            cell.alignment = align_center
-            
-        modules_set = sorted(list(set(r["module"] for r in results)))
-        row_cur = 15
-        for m in modules_set:
-            mod_tests = [r for r in results if r["module"] == m]
-            m_tot = len(mod_tests)
-            m_pass = len([r for r in mod_tests if r["status"] == "Passed"])
-            m_fail = len([r for r in mod_tests if r["status"] == "Failed"])
-            m_rate = (m_pass / m_tot * 100) if m_tot > 0 else 0
-            
-            ws_sum.cell(row=row_cur, column=1, value=m).font = font_body
-            ws_sum.cell(row=row_cur, column=2, value=m_tot).font = font_body
-            ws_sum.cell(row=row_cur, column=3, value=m_pass).font = font_body
-            ws_sum.cell(row=row_cur, column=4, value=m_fail).font = font_body
-            ws_sum.cell(row=row_cur, column=5, value=f"{m_rate:.2f}%").font = font_bold
-            
-            for c in range(1, 6):
-                cell = ws_sum.cell(row=row_cur, column=c)
-                cell.border = border_thin
-                if c > 1:
-                    cell.alignment = align_center
-            row_cur += 1
-            
-        format_sheet(ws_sum)
-        wb_sum.save(os.path.join(Config.EXCEL_DIR, "Summary_Report.xlsx"))
-        logger.info("Exported Excel summary report.")
+        # Non-master Excel reports (Passed, Failed, Summary) are removed per user request.
 
     @staticmethod
     def generate_html_reports(results: list):
