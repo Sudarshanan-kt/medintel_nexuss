@@ -130,3 +130,23 @@
 2026-08-06 11:07:33,421 - INFO - [conftest.py:75] - Pytest session finished. Wrote 0 results for suite=functional shard=0/1.
 2026-08-06 11:07:37,589 - INFO - [report_generator.py:35] - Consolidating parallel execution results...
 2026-08-06 11:07:37,589 - ERROR - [report_generator.py:659] - No intermediate result files matched /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_*.json. The test suites either did not run or failed before writing results — refusing to generate a report.
+2026-08-06 11:15:09,389 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-06 11:15:10,573 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-06 11:15:10,574 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify authentication scenario variant 001: Verify user identity authentication mechanism
+2026-08-06 11:15:22,055 - INFO - [scenario_runner.py:37] - Found 0 input fields on the screen.
+2026-08-06 11:15:22,058 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0226] [UI Validation] - Verify ui validation scenario variant 006: Verify visual placement, themes, and screen typography
+2026-08-06 11:15:23,153 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8080/medintel_nexuss/main.dart.js 4177:19 
+2026-08-06 11:15:24,388 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0451] [CRUD Operations] - Verify crud operations scenario variant 071: Verify database creation, reading, updates, and deletion
+2026-08-06 11:15:25,448 - INFO - [scenario_runner.py:112] - Starting test case: [TC_FUNC_0676] [File Upload] - Verify file upload scenario variant 016: Verify prescription PDF/image uploading boundary constraints
+2026-08-06 11:15:26,503 - WARNING - [scenario_runner.py:33] - SEVERE browser log detected: http://127.0.0.1:8080/medintel_nexuss/main.dart.js 4177:19 
+2026-08-06 11:15:36,553 - INFO - [scenario_runner.py:49] - Verified presence of 0 file upload elements.
+2026-08-06 11:15:36,638 - DEBUG - [conftest.py:28] - Driver shutdown successfully.
+2026-08-06 11:15:36,683 - INFO - [report_generator.py:24] - Saved 4 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_functional_0.json
+2026-08-06 11:15:36,683 - INFO - [conftest.py:75] - Pytest session finished. Wrote 4 results for suite=functional shard=0/225.
+2026-08-06 11:15:36,861 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0001] [OWASP Top 10] - Security verification: OWASP Top 10 - Scenario 001 (Verify compliance with OWASP vulnerability guidelines)
+2026-08-06 11:15:36,862 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0061] [Authorization Validation] - Security verification: Authorization Validation - Scenario 001 (Verify role base privilege elevation prevention)
+2026-08-06 11:15:36,862 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0121] [SQL Injection] - Security verification: SQL Injection - Scenario 001 (Verify injection payloads escaping on API routes)
+2026-08-06 11:15:36,873 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0181] [CSRF Verification] - Security verification: CSRF Verification - Scenario 001 (Verify anti-forgery tokens inclusion in state-changing calls)
+2026-08-06 11:15:36,874 - INFO - [scenario_runner.py:112] - Starting test case: [TC_SECU_0241] [Cookie Validation] - Security verification: Cookie Validation - Scenario 001 (Verify Secure, HttpOnly, and SameSite attribute values)
+2026-08-06 11:15:36,912 - INFO - [report_generator.py:24] - Saved 5 intermediate results to /Users/sudarshanankt/Desktop/medintel_nexus/automation/reports/JSON/results_security_0.json
+2026-08-06 11:15:36,912 - INFO - [conftest.py:75] - Pytest session finished. Wrote 5 results for suite=security shard=0/60.

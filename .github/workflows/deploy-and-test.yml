@@ -56,22 +56,45 @@ jobs:
             echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
           } > .env
 
-      # configure-pages with enablement:true turns GitHub Pages on for the repository if it is
-      # not already enabled. This is what previously caused the deploy verification to 404 in a
-      # loop: the gh-pages branch held a perfectly valid build that Pages was never serving.
+      # `enablement: true` asks the API to switch Pages on. The default GITHUB_TOKEN is often
+      # not permitted to do that, so this step is allowed to fail: publishing to Pages is a
+      # nice-to-have, and the test suites must not be held hostage to a repository setting.
+      # To publish the live site, enable it once by hand:
+      #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
       - name: Configure GitHub Pages
         id: pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Build Flutter web
-        run: flutter build web --release --base-href "${{ steps.pages.outputs.base_path }}/"
+      - name: Resolve base href
+        id: basehref
+        run: |
+          BASE_PATH="${{ steps.pages.outputs.base_path }}"
+          if [ -z "$BASE_PATH" ]; then
+            BASE_PATH="/${{ github.event.repository.name }}"
+            echo "::warning::Pages is not configured; falling back to base href $BASE_PATH/"
+          fi
+          echo "value=${BASE_PATH}/" >> $GITHUB_OUTPUT
 
+      - name: Build Flutter web
+        run: flutter build web --release --base-href "${{ steps.basehref.outputs.value }}"
+
+      # Two uploads of the same bundle: one in the Pages format for deployment, and one plain
+      # artifact the Selenium/vulnerability suites download and serve locally. Testing the exact
+      # bundle that gets published — without waiting on Pages — keeps the suites deterministic.
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
+
+      - name: Upload web bundle for test suites
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+          retention-days: 1
 
   # ---------------------------------------------------------------------------
   # 2. Deploy to Pages and export the real published URL for the test suites.
@@ -80,6 +103,9 @@ jobs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: build
+    # Publishing is independent of test success. If Pages has never been enabled on the
+    # repository this job fails on its own without taking the test suites down with it.
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -142,6 +168,18 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
+      # pubspec.yaml declares `.env` as an asset and .env is gitignored, so without this step
+      # `flutter test` fails at "No file or variants found for asset: .env" before running a
+      # single test. Secrets may legitimately be empty here — the unit tests do not reach the
+      # network, they only need the asset to exist so the bundle can be built.
+      - name: Bundle Supabase environment configuration
+        run: |
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
+
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
@@ -164,7 +202,7 @@ jobs:
   selenium:
     name: "Suite: selenium (shard ${{ matrix.shard }})"
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: build
     strategy:
       fail-fast: false
       matrix:
@@ -189,9 +227,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install selenium pytest requests openpyxl
 
+      - name: Download web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: web-build
+
+      # The suite drives the same bundle that gets published to Pages, served from the runner.
+      # This keeps the E2E tests deterministic and independent of whether Pages is enabled.
+      - name: Serve web bundle
+        run: |
+          nohup python -m http.server 8080 --directory web-build > http.log 2>&1 &
+          for attempt in $(seq 1 15); do
+            if curl -sf -o /dev/null http://127.0.0.1:8080/; then
+              echo "Web bundle is being served on port 8080."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Local web server did not come up."
+          cat http.log
+          exit 1
+
       - name: Run functional scenarios
         env:
-          BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
           SUITE: functional
           SHARD_INDEX: ${{ matrix.shard }}
           SHARD_TOTAL: 6
@@ -223,7 +283,6 @@ jobs:
   load:
     name: "Suite: load"
     runs-on: ubuntu-latest
-    needs: deploy
     steps:
       - uses: actions/checkout@v4
 
@@ -256,7 +315,6 @@ jobs:
 
       - name: Run performance scenarios
         env:
-          BASE_URL: ${{ needs.deploy.outputs.base_url }}
           BACKEND_URL: http://127.0.0.1:8000
           SUITE: performance
         run: python -m pytest automation/tests/test_load.py -v
@@ -276,7 +334,7 @@ jobs:
   vulnerability:
     name: "Suite: vulnerability"
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: build
     steps:
       - uses: actions/checkout@v4
 
@@ -307,9 +365,35 @@ jobs:
           cat uvicorn.log
           exit 1
 
+      # Unpacked under the repository name so the local URL layout matches the Pages layout.
+      # The bundle is built with --base-href /<repo>/, so serving it at the server root would
+      # 404 every asset the page asks for.
+      - name: Download web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: site/${{ github.event.repository.name }}
+
+      - name: Serve web bundle
+        run: |
+          nohup python -m http.server 8080 --directory site > http.log 2>&1 &
+          for attempt in $(seq 1 15); do
+            if curl -sf -o /dev/null "http://127.0.0.1:8080/${{ github.event.repository.name }}/"; then
+              echo "Web bundle is being served."
+              curl -sf -o /dev/null "http://127.0.0.1:8080/${{ github.event.repository.name }}/flutter_bootstrap.js" \
+                && echo "flutter_bootstrap.js resolves correctly." \
+                || echo "::warning::flutter_bootstrap.js did not resolve at the served base href."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Local web server did not come up."
+          cat http.log
+          exit 1
+
       - name: Run security scenarios
         env:
-          BASE_URL: ${{ needs.deploy.outputs.base_url }}
+          BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
           BACKEND_URL: http://127.0.0.1:8000
           SUITE: security
         run: python -m pytest automation/tests/test_vulnerability.py -v
