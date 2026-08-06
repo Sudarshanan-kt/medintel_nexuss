@@ -48,7 +48,6 @@ def _run_functional(scenario, driver):
 
     elif "UI Validation" in module or "Responsive Design" in module:
         driver.set_window_size(375, 812)  # iPhone
-        time.sleep(0.2)
         driver.set_window_size(1280, 1024)  # desktop
 
     elif "File Upload" in module:

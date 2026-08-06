@@ -9,12 +9,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: false
 
 env:
   FLUTTER_VERSION: '3.44.0'
@@ -57,13 +51,6 @@ jobs:
       - name: Build Flutter web
         run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
 
-      - name: Upload web bundle for deployment
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: build/web
-          retention-days: 1
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -98,6 +85,8 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
           SUITE: functional
+          IMPLICIT_WAIT: 0
+          EXPLICIT_WAIT: 0
         run: python -m pytest automation/tests/test_selenium.py -v
 
       - name: Upload results
@@ -108,17 +97,6 @@ jobs:
           path: automation/reports/JSON/results_*.json
           if-no-files-found: warn
           retention-days: 1
-
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostics-selenium
-          path: |
-            automation/reports/Logs/
-            automation/reports/Screenshots/
-          if-no-files-found: ignore
-          retention-days: 30
 
   # ===========================================================================
   # Domain Test 2: Appium Mobile Tests (300 cases)
@@ -161,18 +139,6 @@ jobs:
             echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
             echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
           } > .env
-
-      - name: Build debug APK
-        run: flutter build apk --debug
-
-      - name: Upload debug APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: medintel-nexus-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: warn
-          retention-days: 30
 
       - name: Run Appium scenarios (Mocked)
         env:
@@ -355,7 +321,7 @@ jobs:
           retention-days: 1
 
   # ===========================================================================
-  # Quality Reporting and GitHub Pages Deployment
+  # Quality Reporting
   # ===========================================================================
   deploy-all-reports:
     name: deploy-all-reports
@@ -407,7 +373,7 @@ jobs:
             echo "No summary was generated — the suites did not produce results." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload consolidated reports
+      - name: Upload consolidated reports (Master Artifact)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -419,28 +385,3 @@ jobs:
             automation/reports/Summary/
           if-no-files-found: warn
           retention-days: 30
-
-      # Download the built web artifact from the Selenium job
-      - name: Download web build
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: build/web
-
-      # Package the quality reports as part of the Web Deployment directory
-      - name: Package Reports into Web build
-        run: |
-          mkdir -p build/web/reports
-          cp -r automation/reports/HTML/* build/web/reports/
-          cp -r automation/reports/Excel/* build/web/reports/ || true
-          echo "Web build folder packaging complete. Files:"
-          ls -la build/web
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

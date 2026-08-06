@@ -126,7 +126,7 @@ class ReportGenerator:
             "Failed_Test_Cases.xlsx": [r for r in results if r["status"] == "Failed"]
         }
         
-        headers = ["Test Case ID", "Module", "Type", "Priority", "Title", "Preconditions", "Steps", "Expected Result", "Actual Result", "Status", "Duration (s)", "Error Message"]
+        headers = ["Test ID", "Type", "Module", "Title / Test Name", "Status", "Duration (s)"]
         
         for filename, data in reports_mapping.items():
             wb = Workbook()
@@ -143,12 +143,9 @@ class ReportGenerator:
             
             # Data Rows
             for row_idx, r in enumerate(data, 2):
-                steps_str = "\n".join(r["steps"]) if isinstance(r["steps"], list) else str(r["steps"])
                 row_data = [
-                    r["id"], r["module"], r["type"], r["priority"], r["title"],
-                    r["preconditions"], steps_str, r["expected_result"],
-                    r["actual_result"], r["status"], round(r["execution_time"], 3),
-                    r.get("error_message", "")
+                    r["id"], r["type"], r["module"], r["title"],
+                    r["status"], round(r["execution_time"], 3)
                 ]
                 
                 for col_idx, val in enumerate(row_data, 1):
@@ -156,13 +153,13 @@ class ReportGenerator:
                     cell.font = font_body
                     cell.border = border_thin
                     
-                    if col_idx in [1, 2, 3, 4, 10, 11]:
+                    if col_idx in [1, 2, 3, 5, 6]:
                         cell.alignment = align_center
                     else:
                         cell.alignment = align_left_wrap
                         
                     # Format Status Cell
-                    if col_idx == 10:
+                    if col_idx == 5:
                         if val == "Passed":
                             cell.fill = fill_pass
                         elif val == "Failed":
