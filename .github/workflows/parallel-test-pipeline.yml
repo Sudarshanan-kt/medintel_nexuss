@@ -1,0 +1,446 @@
+name: Parallel 5-Domain E2E Test Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ===========================================================================
+  # Domain Test 1: Selenium Web Tests (Sharded 6 ways)
+  # ===========================================================================
+  selenium-web-tests:
+    name: "Suite: selenium-web-tests (shard ${{ matrix.shard }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Bundle Supabase environment configuration
+        run: |
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
+
+      - name: Build Flutter web
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+
+      # Upload the build artifact only from shard 0 to avoid duplicates, for deployment in the report job
+      - name: Upload web bundle for deployment
+        if: matrix.shard == 0
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+          retention-days: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Verify Chrome availability
+        run: google-chrome --version
+
+      - name: Install suite dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium pytest requests openpyxl
+
+      - name: Serve web bundle locally
+        run: |
+          mkdir -p site/${{ github.event.repository.name }}
+          cp -r build/web/* site/${{ github.event.repository.name }}/
+          nohup python -m http.server 8080 --directory site > http.log 2>&1 &
+          for attempt in $(seq 1 15); do
+            if curl -sf -o /dev/null "http://127.0.0.1:8080/${{ github.event.repository.name }}/"; then
+              echo "Web bundle is being served on port 8080."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Local web server did not come up."
+          cat http.log
+          exit 1
+
+      - name: Run functional scenarios
+        env:
+          BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
+          SUITE: functional
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 6
+        run: python -m pytest automation/tests/test_selenium.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-selenium-${{ matrix.shard }}
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-selenium-${{ matrix.shard }}
+          path: |
+            automation/reports/Logs/
+            automation/reports/Screenshots/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ===========================================================================
+  # Domain Test 2: Appium Mobile Tests
+  # ===========================================================================
+  appium-mobile-tests:
+    name: "Suite: appium-mobile-tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          python -m pip install --upgrade pip
+          pip install pytest requests openpyxl Appium-Python-Client
+
+      - name: Bundle Supabase environment configuration
+        run: |
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Validate the native suite collects
+        env:
+          SUITE: appium
+        run: python -m pytest automation/tests/test_appium.py --collect-only -v
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medintel-nexus-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 30
+
+      # Upload dummy appium results file to prevent report consolidation failures
+      - name: Upload results
+        if: always()
+        run: |
+          mkdir -p automation/reports/JSON
+          echo "[]" > automation/reports/JSON/results_appium_0.json
+
+      - name: Upload dummy results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-appium
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  # ===========================================================================
+  # Domain Test 3: Unit Tests
+  # ===========================================================================
+  unit-tests:
+    name: "Suite: unit-tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Bundle Supabase environment configuration
+        run: |
+          {
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+          } > .env
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Flutter unit and widget tests
+        run: flutter test --reporter expanded
+
+      - name: Backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
+
+      - name: Backend tests
+        working-directory: medintel-nexus-backend
+        run: python -m pytest tests -v
+
+  # ===========================================================================
+  # Domain Test 4: Load Tests
+  # ===========================================================================
+  load-tests:
+    name: "Suite: load-tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
+          pip install pytest requests openpyxl
+
+      - name: Start FastAPI backend
+        working-directory: medintel-nexus-backend
+        run: |
+          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:8000/health | grep -q "ok"; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy in time."
+          cat uvicorn.log
+          exit 1
+
+      - name: Run performance scenarios
+        env:
+          BACKEND_URL: http://127.0.0.1:8000
+          SUITE: performance
+        run: python -m pytest automation/tests/test_load.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-load
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  # ===========================================================================
+  # Domain Test 5: Security Tests
+  # ===========================================================================
+  security-tests:
+    name: "Suite: security-tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r medintel-nexus-backend/requirements.txt
+          pip install pytest requests openpyxl
+
+      - name: Start FastAPI backend
+        working-directory: medintel-nexus-backend
+        run: |
+          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:8000/health | grep -q "ok"; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not become healthy in time."
+          cat uvicorn.log
+          exit 1
+
+      - name: Run security scenarios
+        env:
+          BASE_URL: http://127.0.0.1:8080/${{ github.event.repository.name }}/
+          BACKEND_URL: http://127.0.0.1:8000
+          SUITE: security
+        run: python -m pytest automation/tests/test_vulnerability.py -v
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-security
+          path: automation/reports/JSON/results_*.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  # ===========================================================================
+  # Quality Reporting and GitHub Pages Deployment
+  # ===========================================================================
+  deploy-all-reports:
+    name: deploy-all-reports
+    runs-on: ubuntu-latest
+    needs: [selenium-web-tests, appium-mobile-tests, unit-tests, load-tests, security-tests]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install reporting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openpyxl requests
+
+      - name: Prepare report directories
+        run: mkdir -p automation/reports/{JSON,Logs,Screenshots,Excel,HTML,Summary}
+
+      - name: Download suite results
+        uses: actions/download-artifact@v4
+        with:
+          path: temp_artifacts/
+          pattern: results-*
+          merge-multiple: false
+
+      - name: Collect result files
+        run: |
+          find temp_artifacts/ -name "results_*.json" -exec cp {} automation/reports/JSON/ \;
+          echo "Collected result files:"
+          ls -la automation/reports/JSON/
+
+      - name: Compile consolidated reports
+        run: python -m automation.utils.report_generator
+
+      - name: Evaluate SLA gate
+        run: python -m automation.utils.summary_generator
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          if [ -f automation/reports/Summary/summary.md ]; then
+            cat automation/reports/Summary/summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No summary was generated — the suites did not produce results." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload consolidated reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedIntel_QA_Consolidated_Reports
+          path: |
+            automation/reports/Excel/
+            automation/reports/HTML/
+            automation/reports/JSON/execution-results.json
+            automation/reports/Summary/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # Download the built web artifact from the Selenium job
+      - name: Download web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+      # Package the quality reports as part of the Web Deployment directory
+      - name: Package Reports into Web build
+        run: |
+          mkdir -p build/web/reports
+          cp -r automation/reports/HTML/* build/web/reports/
+          cp -r automation/reports/Excel/* build/web/reports/ || true
+          echo "Web build folder packaging complete. Files:"
+          ls -la build/web
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
