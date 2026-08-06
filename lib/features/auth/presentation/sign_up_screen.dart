@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../application/auth_controller.dart';
+import '../domain/auth_user.dart';
 import 'google_web_button.dart';
 
 /// Sign Up screen backed by Supabase Auth.
@@ -35,6 +36,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool _obscureConfirm = true;
   String? _errorMessage;
   bool _emailConfirmationPending = false;
+  UserRole _role = UserRole.patient;
 
   @override
   void dispose() {
@@ -56,6 +58,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           email: _email.text.trim(),
           password: _password.text,
           fullName: _name.text.trim(),
+          role: _role,
         );
 
     if (!mounted) return;
@@ -138,7 +141,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   style: AppTypography.bodyMd
                       .copyWith(color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: AppSpacing.xxl),
+                const SizedBox(height: AppSpacing.xl),
+
+                _RoleToggle(
+                  value: _role,
+                  enabled: !isLoading,
+                  onChanged: (role) => setState(() => _role = role),
+                ),
+                const SizedBox(height: AppSpacing.xl),
 
                 // Email confirmation notice
                 if (_emailConfirmationPending) ...[
@@ -295,6 +305,114 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Patient vs caregiver account-type picker. Purely a sign-up-time choice —
+/// caregiver accounts skip health-profile onboarding entirely and land on a
+/// dedicated dashboard (see `AuthController._withResolvedRole` and
+/// `Routes.caregiverHome`) instead of the patient's own health tools.
+class _RoleToggle extends StatelessWidget {
+  const _RoleToggle({
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final UserRole value;
+  final ValueChanged<UserRole> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.tintBlue.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _RoleOption(
+              label: "I'm a patient",
+              icon: Icons.person_rounded,
+              selected: value == UserRole.patient,
+              onTap:
+                  enabled ? () => onChanged(UserRole.patient) : null,
+            ),
+          ),
+          Expanded(
+            child: _RoleOption(
+              label: "I'm a caregiver",
+              icon: Icons.favorite_rounded,
+              selected: value == UserRole.caregiver,
+              onTap:
+                  enabled ? () => onChanged(UserRole.caregiver) : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleOption extends StatelessWidget {
+  const _RoleOption({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? AppColors.primary : AppColors.textSecondary,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: AppTypography.labelMd.copyWith(
+                color:
+                    selected ? AppColors.primaryDeep : AppColors.textSecondary,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _OrDivider extends StatelessWidget {
   const _OrDivider();

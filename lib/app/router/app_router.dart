@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../features/assistant/presentation/assistant_screen.dart';
 import '../../features/auth/application/auth_controller.dart';
+import '../../features/auth/domain/auth_user.dart';
 import '../../features/care_circle/presentation/accept_invite_screen.dart';
 import '../../features/care_circle/presentation/care_circle_screen.dart';
 import '../../features/dashboard/presentation/health_timeline_screen.dart';
@@ -61,6 +62,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.onboarding,
         pageBuilder: (_, s) =>
             _sharedAxis(s, const HealthcareOnboardingScreen()),
+      ),
+      GoRoute(
+        path: Routes.caregiverHome,
+        pageBuilder: (_, s) =>
+            _sharedAxis(s, const CareCircleScreen(caregiverMode: true)),
       ),
 
       // ── Standalone feature pages ───────────────────────────────────────
@@ -196,6 +202,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 /// Auth guard. Keeps unauthenticated users in `/auth/*`, sends authenticated
 /// users out of it, and routes onboarding-incomplete users to onboarding.
+///
+/// Authenticated users also branch by role: caregiver accounts have no
+/// patient health data, so they land on (and are confined to) their own
+/// `caregiverHome` dashboard instead of the patient shell at `home`.
 String? _redirect(Ref ref, GoRouterState state) {
   final status = ref.read(authStatusProvider);
   final loc = state.matchedLocation;
@@ -210,7 +220,14 @@ String? _redirect(Ref ref, GoRouterState state) {
     case AuthStatus.onboarding:
       return loc == Routes.onboarding ? null : Routes.onboarding;
     case AuthStatus.authenticated:
-      return (isAuthRoute || isSplash) ? Routes.home : null;
+      final isCaregiver =
+          ref.read(authControllerProvider).valueOrNull?.user?.role ==
+              UserRole.caregiver;
+      final landing = isCaregiver ? Routes.caregiverHome : Routes.home;
+      if (isAuthRoute || isSplash) return landing;
+      if (isCaregiver && loc != Routes.caregiverHome) return landing;
+      if (!isCaregiver && loc == Routes.caregiverHome) return landing;
+      return null;
   }
 }
 

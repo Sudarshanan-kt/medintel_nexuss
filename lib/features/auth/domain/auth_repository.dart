@@ -28,11 +28,15 @@ abstract interface class AuthRepository {
   Future<Result<AuthUser?>> currentUser();
 
   /// Creates a new account with [email] + [password] and optional [fullName].
+  /// [role] is stashed in Supabase auth metadata as `pending_role` so it
+  /// survives even the "confirm your email first" path, where no session
+  /// exists yet to write it to the `profiles` table.
   /// Supabase may send a confirmation email depending on project settings.
   Future<Result<AuthUser>> signUp({
     required String email,
     required String password,
     String? fullName,
+    UserRole role = UserRole.patient,
   });
 
   /// Signs in an existing user with [email] + [password].

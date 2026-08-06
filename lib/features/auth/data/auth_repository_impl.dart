@@ -47,14 +47,17 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     String? fullName,
+    UserRole role = UserRole.patient,
   }) async {
     try {
       final res = await _supabase.auth.signUp(
         email: email.trim(),
         password: password,
-        data: fullName != null && fullName.trim().isNotEmpty
-            ? {'full_name': fullName.trim()}
-            : null,
+        data: {
+          if (fullName != null && fullName.trim().isNotEmpty)
+            'full_name': fullName.trim(),
+          'pending_role': role == UserRole.caregiver ? 'caregiver' : 'patient',
+        },
       );
       final supaUser = res.user;
       if (supaUser == null) {

@@ -1,6 +1,6 @@
-/// The role a signed-in user holds. Drives which shell (patient vs clinic)
-/// and feature set the app renders.
-enum UserRole { patient, clinician, admin }
+/// The role a signed-in user holds. Drives which shell (patient vs clinic
+/// vs caregiver) and feature set the app renders.
+enum UserRole { patient, caregiver, clinician, admin }
 
 /// Immutable domain entity for an authenticated user.
 ///
@@ -31,10 +31,11 @@ class AuthUser {
     String? fullName,
     String? avatarUrl,
     bool? onboardingComplete,
+    UserRole? role,
   }) {
     return AuthUser(
       id: id,
-      role: role,
+      role: role ?? this.role,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       fullName: fullName ?? this.fullName,
       phone: phone,

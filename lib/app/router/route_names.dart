@@ -12,6 +12,7 @@ abstract final class Routes {
 
   // Shell tabs
   static const String home = '/home';
+  static const String caregiverHome = '/caregiver-home';
   static const String assistant = '/assistant';
   static const String scan = '/scan';
   static const String reports = '/reports';

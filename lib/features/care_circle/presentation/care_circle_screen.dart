@@ -16,7 +16,15 @@ import '../data/care_task_repository.dart';
 import '../domain/care_circle_models.dart';
 
 class CareCircleScreen extends ConsumerStatefulWidget {
-  const CareCircleScreen({super.key});
+  const CareCircleScreen({super.key, this.caregiverMode = false});
+
+  /// When true, this renders as a caregiver-only account's dashboard
+  /// (reached directly at login, with no bottom-tab shell around it) rather
+  /// than a patient's "Care Circle" tab: the "People caring for me" /
+  /// "Invite a caregiver" sections are hidden — a pure caregiver account has
+  /// no health profile of its own to invite anyone into — and the app bar
+  /// gains a sign-out action since there's no profile tab to reach one from.
+  final bool caregiverMode;
 
   @override
   ConsumerState<CareCircleScreen> createState() => _CareCircleScreenState();
@@ -84,7 +92,19 @@ class _CareCircleScreenState extends ConsumerState<CareCircleScreen> {
     final state = ref.watch(careCircleControllerProvider);
 
     return GradientScaffold(
-      appBar: AppBar(title: const Text('Care Circle')),
+      appBar: AppBar(
+        title: Text(widget.caregiverMode ? 'My Patients' : 'Care Circle'),
+        actions: widget.caregiverMode
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded),
+                  tooltip: 'Sign out',
+                  onPressed: () =>
+                      ref.read(authControllerProvider.notifier).signOut(),
+                ),
+              ]
+            : null,
+      ),
       body: RefreshIndicator(
         onRefresh: () =>
             ref.read(careCircleControllerProvider.notifier).refresh(),
@@ -97,40 +117,42 @@ class _CareCircleScreenState extends ConsumerState<CareCircleScreen> {
           ),
           physics: const BouncingScrollPhysics(),
           children: [
-            Text(
-              'People caring for me',
-              style:
-                  AppTypography.titleMd.copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'They can see your medicine adherence — never your full health profile.',
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (state.myCaregivers.isEmpty)
-              const _EmptyRow(text: 'No one added yet.')
-            else
-              for (final c in state.myCaregivers)
-                _CaregiverRow(
-                  member: c,
-                  onRemove: () => ref
-                      .read(careCircleControllerProvider.notifier)
-                      .removeCaregiver(c.id),
-                ),
-            const SizedBox(height: AppSpacing.md),
-            PrimaryButton(
-              label: 'Invite a caregiver',
-              icon: Icons.person_add_alt_1_rounded,
-              isLoading: _inviting,
-              onPressed: _invite,
-            ),
-            if (_selfId != null) ...[
-              const SizedBox(height: AppSpacing.xl),
-              _TaskBoardSection(patientId: _selfId!, patientLabel: 'you'),
+            if (!widget.caregiverMode) ...[
+              Text(
+                'People caring for me',
+                style: AppTypography.titleMd
+                    .copyWith(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'They can see your medicine adherence — never your full health profile.',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (state.myCaregivers.isEmpty)
+                const _EmptyRow(text: 'No one added yet.')
+              else
+                for (final c in state.myCaregivers)
+                  _CaregiverRow(
+                    member: c,
+                    onRemove: () => ref
+                        .read(careCircleControllerProvider.notifier)
+                        .removeCaregiver(c.id),
+                  ),
+              const SizedBox(height: AppSpacing.md),
+              PrimaryButton(
+                label: 'Invite a caregiver',
+                icon: Icons.person_add_alt_1_rounded,
+                isLoading: _inviting,
+                onPressed: _invite,
+              ),
+              if (_selfId != null) ...[
+                const SizedBox(height: AppSpacing.xl),
+                _TaskBoardSection(patientId: _selfId!, patientLabel: 'you'),
+              ],
+              const SizedBox(height: AppSpacing.xxl),
             ],
-            const SizedBox(height: AppSpacing.xxl),
             Text(
               'People I care for',
               style:

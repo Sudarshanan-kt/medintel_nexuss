@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import '../../../core/utils/result.dart';
 import '../../profile/data/health_profile_repository.dart';
 import '../data/auth_repository_impl.dart';
+import '../data/profile_repository.dart';
 import '../domain/auth_repository.dart';
 import '../domain/auth_user.dart';
 
@@ -56,6 +57,7 @@ class AuthController extends AsyncNotifier<AuthState> {
   AuthRepository get _repo => ref.read(authRepositoryProvider);
   HealthProfileRepository get _hpRepo =>
       ref.read(healthProfileRepositoryProvider);
+  ProfileRepository get _profileRepo => ref.read(profileRepositoryProvider);
   StreamSubscription<supa.AuthState>? _authSub;
 
   @override
@@ -88,20 +90,26 @@ class AuthController extends AsyncNotifier<AuthState> {
     required String email,
     required String password,
     String? fullName,
+    UserRole role = UserRole.patient,
   }) async {
     state = const AsyncLoading();
     final result = await _repo.signUp(
       email: email,
       password: password,
       fullName: fullName,
+      role: role,
     );
     return result.when(
       success: (user) async {
-        // New sign-up → no health profile exists → onboarding.
+        final resolved = await _withResolvedRole(user, fallback: role);
+        // Caregiver accounts skip patient health onboarding entirely; a
+        // fresh patient sign-up has no health profile yet → onboarding.
         state = AsyncData(
           AuthState(
-            status: AuthStatus.onboarding,
-            user: user,
+            status: resolved.role == UserRole.caregiver
+                ? AuthStatus.authenticated
+                : AuthStatus.onboarding,
+            user: resolved,
           ),
         );
         return null;
@@ -195,10 +203,15 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<AuthState> _fromUserResult(Result<AuthUser> result) async {
     return result.when(
-      success: (user) async => AuthState(
-        status: await _onboardingStatus(user),
-        user: user,
-      ),
+      success: (user) async {
+        final resolved = await _withResolvedRole(user);
+        return AuthState(
+          status: resolved.role == UserRole.caregiver
+              ? AuthStatus.authenticated
+              : await _onboardingStatus(resolved),
+          user: resolved,
+        );
+      },
       failure: (f) async => AuthState(
         status: AuthStatus.unauthenticated,
         errorMessage: f.message,
@@ -214,13 +227,43 @@ class AuthController extends AsyncNotifier<AuthState> {
         if (user == null) {
           return const AuthState(status: AuthStatus.unauthenticated);
         }
+        final resolved = await _withResolvedRole(user);
         return AuthState(
-          status: await _onboardingStatus(user),
-          user: user,
+          status: resolved.role == UserRole.caregiver
+              ? AuthStatus.authenticated
+              : await _onboardingStatus(resolved),
+          user: resolved,
         );
       },
       failure: (_) async => const AuthState(status: AuthStatus.unauthenticated),
     );
+  }
+
+  /// Resolves [user]'s persisted role (patient/caregiver) from the
+  /// `profiles` table, creating that row on first resolution if it doesn't
+  /// exist yet. [fallback] seeds the row only when nothing was signalled at
+  /// sign-up time (e.g. Google sign-in, which has no role picker); the
+  /// `pending_role` sign-up hint otherwise takes precedence.
+  Future<AuthUser> _withResolvedRole(
+    AuthUser user, {
+    UserRole fallback = UserRole.patient,
+  }) async {
+    final hint =
+        supa.Supabase.instance.client.auth.currentUser?.userMetadata?['pending_role']
+            as String?;
+    final defaultRole = hint == 'caregiver' ? UserRole.caregiver : fallback;
+    try {
+      final role = await _profileRepo.ensureAndFetchRole(
+        userId: user.id,
+        defaultRole: defaultRole,
+        displayName: user.fullName,
+      );
+      return user.copyWith(role: role);
+    } catch (_) {
+      // Network error resolving role — fall back to whatever the auth
+      // layer already mapped rather than blocking sign-in entirely.
+      return user;
+    }
   }
 }
 
