@@ -279,8 +279,11 @@ class _CaregiverRow extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded,
-                color: AppColors.danger, size: 18),
+            icon: const Icon(
+              Icons.close_rounded,
+              color: AppColors.danger,
+              size: 18,
+            ),
             onPressed: onRemove,
           ),
         ],
@@ -353,8 +356,10 @@ class _InviteCodeDialog extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────
 
 class _TaskBoardSection extends ConsumerWidget {
-  const _TaskBoardSection(
-      {required this.patientId, required this.patientLabel});
+  const _TaskBoardSection({
+    required this.patientId,
+    required this.patientLabel,
+  });
   final String patientId;
   final String patientLabel;
 

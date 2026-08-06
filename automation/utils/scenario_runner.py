@@ -9,7 +9,6 @@ load and vulnerability CI jobs run without Chrome at all.
 import time
 
 import requests
-from selenium.webdriver.common.by import By
 
 from automation.config.config import Config
 from automation.data.test_data import TestData
@@ -19,6 +18,10 @@ from automation.utils.screenshot_util import take_screenshot
 
 def _run_functional(scenario, driver):
     """Real Selenium E2E interactions against the deployed GitHub Pages build."""
+    # Imported lazily: only this branch needs selenium, and the load/vulnerability
+    # CI jobs deliberately never install it (see module docstring).
+    from selenium.webdriver.common.by import By
+
     module = scenario["module"]
 
     driver.get(Config.BASE_URL)

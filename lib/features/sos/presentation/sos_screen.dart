@@ -418,12 +418,15 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                   onPressed: () => notifier.makePhoneCall(c.phone),
                   icon:
                       const Icon(Icons.call_rounded, size: 16, color: _primary),
-                  label: const Text('Call',
-                      style: TextStyle(fontSize: 12, color: _primary)),
+                  label: const Text(
+                    'Call',
+                    style: TextStyle(fontSize: 12, color: _primary),
+                  ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -431,18 +434,20 @@ class _SosScreenState extends ConsumerState<SosScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => notifier.sendSms(
-                      c.phone,
-                      customMsg.isNotEmpty
-                          ? customMsg
-                          : 'EMERGENCY: Need help!'),
+                    c.phone,
+                    customMsg.isNotEmpty ? customMsg : 'EMERGENCY: Need help!',
+                  ),
                   icon:
                       const Icon(Icons.sms_rounded, size: 16, color: _primary),
-                  label: const Text('SMS',
-                      style: TextStyle(fontSize: 12, color: _primary)),
+                  label: const Text(
+                    'SMS',
+                    style: TextStyle(fontSize: 12, color: _primary),
+                  ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -450,18 +455,20 @@ class _SosScreenState extends ConsumerState<SosScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => notifier.openWhatsApp(
-                      c.phone,
-                      customMsg.isNotEmpty
-                          ? customMsg
-                          : 'EMERGENCY: Need help!'),
+                    c.phone,
+                    customMsg.isNotEmpty ? customMsg : 'EMERGENCY: Need help!',
+                  ),
                   icon: const Icon(Icons.chat_rounded, size: 16, color: _green),
-                  label: const Text('WhatsApp',
-                      style: TextStyle(fontSize: 12, color: _green)),
+                  label: const Text(
+                    'WhatsApp',
+                    style: TextStyle(fontSize: 12, color: _green),
+                  ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF86EFAC)),
                     visualDensity: VisualDensity.compact,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),

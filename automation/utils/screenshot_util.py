@@ -1,10 +1,16 @@
 import os
 import time
-from selenium.webdriver.remote.webdriver import WebDriver
+from typing import TYPE_CHECKING
+
 from automation.config.config import Config
 from automation.utils.logger_util import logger
 
-def take_screenshot(driver: WebDriver, name: str) -> str:
+if TYPE_CHECKING:
+    # Only needed for the type hint below — the load/vulnerability CI jobs
+    # never install selenium (see automation/utils/scenario_runner.py).
+    from selenium.webdriver.remote.webdriver import WebDriver
+
+def take_screenshot(driver: "WebDriver", name: str) -> str:
     """Captures a screenshot and saves it to the reports folder.
     Returns the absolute path to the saved screenshot file.
     """

@@ -68,7 +68,9 @@ class _SosCountdownDialogState extends ConsumerState<SosCountdownDialog>
           content: Text(
             '🚨 Emergency SOS Activated! Primary contact (${event.primaryContactPhone}) called & SMS sent.',
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold),
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       );

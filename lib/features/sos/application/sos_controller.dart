@@ -313,8 +313,10 @@ class SosController extends Notifier<SosState> {
     final waUri = Uri.parse('https://wa.me/$cleaned?text=$encodedMsg');
     try {
       if (await canLaunchUrl(waUri)) {
-        return await launchUrl(waUri,
-            mode: LaunchMode.externalNonBrowserApplication);
+        return await launchUrl(
+          waUri,
+          mode: LaunchMode.externalNonBrowserApplication,
+        );
       } else {
         return await launchUrl(waUri, mode: LaunchMode.externalApplication);
       }
