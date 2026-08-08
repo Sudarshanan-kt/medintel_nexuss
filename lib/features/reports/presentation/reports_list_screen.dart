@@ -126,23 +126,28 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
         } catch (_) {}
       }
 
-      // [DEBUG] temporary tracing — remove after the upload flow is confirmed.
       dev.log(
         'PDF upload kIsWeb=$kIsWeb name=${picked.name} '
         'bytes=${bytes?.length} sha256=${fileSha256?.substring(0, 8)}…',
         name: 'reports.upload',
       );
 
-      // GUARANTEED demo path: build a fully-analyzed report synchronously and
-      // navigate straight to the viewer. No OCR, no cache, no processing state.
-      final id = ref.read(reportsControllerProvider.notifier).addAnalyzedDemo(
+      // Real analysis. This used to call addAnalyzedDemo(), which built a
+      // fully "analyzed" report synchronously from a random generator —
+      // so uploading any PDF produced invented LDL, HbA1c, glucose and TSH
+      // figures presented as the patient's own results. A patient can act
+      // on numbers like those, so the upload now goes through OCR and the
+      // report shows what was actually read, or says it couldn't read it.
+      ref.read(reportsControllerProvider.notifier).addUpload(
+            title: picked.name,
+            type: ReportType.lab,
             fileRef: fileRef,
             fileName: picked.name,
             sha256: fileSha256,
           );
 
       if (!context.mounted) return;
-      context.go(Routes.reportById(id));
+      context.go(Routes.reports);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

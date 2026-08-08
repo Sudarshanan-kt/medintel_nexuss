@@ -11,7 +11,6 @@ import '../data/demo_ocr_cache.dart';
 import '../data/report_analysis_repository.dart';
 import '../data/reports_repository.dart';
 import '../data/rx_local_store.dart';
-import '../data/synthetic_report.dart';
 import '../domain/medical_report.dart';
 
 /// Holds the patient's report library with dual-layer persistence:
@@ -171,55 +170,6 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     _analyze(id, fileName: fileName, sha256: sha256);
   }
 
-  /// GUARANTEED demo path — no OCR, no cache, no background Future.
-  ///
-  /// Builds a fully `analyzed` report synchronously, inserts it at the top of
-  /// the library, and returns its id so the caller can navigate straight to
-  /// the viewer. The report is NEVER left in a processing state.
-  String addAnalyzedDemo({
-    String? fileRef,
-    String? fileName,
-    String? sha256,
-  }) {
-    final id = 'r_${DateTime.now().microsecondsSinceEpoch}';
-    final isDemoFile =
-        DemoLabReport.matches(fileName) || DemoLabReport.matches(fileRef);
-    final report = isDemoFile
-        ? DemoLabReport.build(id: id, fileRef: fileRef, sha256: sha256)
-        : SyntheticReport.build(
-            id: id,
-            seed: sha256 ?? fileName ?? fileRef ?? id,
-            fileRef: fileRef,
-          );
-    _log('addAnalyzedDemo id=$id demoFile=$isDemoFile status=${report.status} '
-        'metrics=${report.metrics.length} findings=${report.findings.length}');
-    state = [report, ...state];
-    _persistLocal();
-    _upsertRemote(report);
-
-    if (sha256 != null) {
-      unawaited(
-        ref
-            .read(rxLocalStoreProvider)
-            .persist(
-              sha256,
-              DemoOcrResult(
-                id: report.id,
-                title: report.title,
-                confidence: report.ocrConfidence ?? 0.97,
-                summary: report.summary ?? '',
-                medicines: report.medicines,
-                riskAnalysis: report.findings.map((f) => f.text).toList(),
-                insights: report.insights,
-                metrics: report.metrics,
-              ),
-            )
-            .timeout(const Duration(seconds: 4))
-            .catchError((Object e) => _log('demo persist ERROR: $e')),
-      );
-    }
-    return id;
-  }
 
   /// Re-applies a [DemoOcrResult] to an existing report after the user links
   /// it to a pre-registered prescription entry via the "Link" card.
@@ -438,16 +388,16 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     }
     MedicalReport finished;
     try {
+      // No analysis result means the report could not be read — say so.
+      //
+      // This used to fall back to SyntheticReport.build(), which invented
+      // plausible lab values from a random seed. A patient looking at a
+      // fabricated HbA1c has no way to tell it from a real one, and might
+      // act on it. An honest "couldn't read this" is always better than a
+      // confident wrong number.
       finished = demo != null
           ? _applyResult(report, demo, isDemoMatched: true)
-          : (report.type == ReportType.lab
-              ? SyntheticReport.build(
-                  id: report.id,
-                  seed: report.sha256 ?? report.id,
-                  fileRef: report.fileRef,
-                  uploadedAt: report.uploadedAt,
-                )
-              : report.copyWith(status: ReportStatus.analyzed));
+          : report.copyWith(status: ReportStatus.failed);
 
       state = [
         for (final r in state) if (r.id == id) finished else r,

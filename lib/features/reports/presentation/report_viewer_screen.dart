@@ -6,6 +6,7 @@ import '../../../app/router/route_names.dart';
 import '../application/reports_controller.dart';
 import '../data/health_advice.dart';
 import '../domain/medical_report.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Crash-proof report viewer.
 ///
@@ -19,10 +20,10 @@ class ReportViewerScreen extends ConsumerWidget {
   const ReportViewerScreen({super.key, required this.reportId});
   final String reportId;
 
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
-  static const _primary = Color(0xFF2563EB);
-  static const _danger = Color(0xFFDC2626);
+  static const _ink = AppColors.textPrimary;
+  static const _muted = AppColors.textSecondary;
+  static const _primary = AppColors.info;
+  static const _danger = AppColors.dangerDeep;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,8 +71,8 @@ class ReportViewerScreen extends ConsumerWidget {
                 PopupMenuItem(
                   value: _ViewerAction.delete,
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
-                    title: Text('Delete', style: TextStyle(color: Color(0xFFDC2626))),
+                    leading: Icon(Icons.delete_outline, color: AppColors.dangerDeep),
+                    title: Text('Delete', style: TextStyle(color: AppColors.dangerDeep)),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -173,11 +174,11 @@ class ReportViewerScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hourglass_top_rounded, size: 48, color: Color(0xFF64748B)),
+            Icon(Icons.hourglass_top_rounded, size: 48, color: AppColors.textSecondary),
             SizedBox(height: 12),
             Text(
               'Loading report…',
-              style: TextStyle(fontSize: 16, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -259,7 +260,7 @@ class ReportViewerScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
+                  color: AppColors.tintGreen,
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: const Text(
@@ -267,7 +268,7 @@ class ReportViewerScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF15803D),
+                    color: AppColors.successDeep,
                   ),
                 ),
               ),
@@ -450,14 +451,14 @@ class ReportViewerScreen extends ConsumerWidget {
             child: _card(
               const Column(
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 40, color: Color(0xFF64748B)),
+                  Icon(Icons.info_outline_rounded, size: 40, color: AppColors.textSecondary),
                   SizedBox(height: 12),
                   Text(
                     'No structured data extracted',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F172A),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 6),
@@ -468,7 +469,7 @@ class ReportViewerScreen extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
-                      color: Color(0xFF64748B),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -500,7 +501,7 @@ class ReportViewerScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: AppColors.outline),
           boxShadow: const [
             BoxShadow(
               color: Color(0x0F000000),
