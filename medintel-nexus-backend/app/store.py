@@ -38,6 +38,29 @@ class PrescriptionRecord:
     medicines: List[dict] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     image_path: Optional[str] = None
+    # Human-in-the-loop gate. A prescription is only "verified" once either
+    # the OCR read every field confidently enough to stand on its own, or
+    # the patient confirmed/corrected the uncertain ones. Risk analysis
+    # refuses to run against an unverified record — acting on a misread drug
+    # name is the worst failure this pipeline has.
+    verified: bool = False
+    verified_at: Optional[float] = None
+    # True when the patient (not the OCR) settled the uncertain fields.
+    verified_by_user: bool = False
+
+    @property
+    def needs_review(self) -> bool:
+        return self.status == "analyzed" and not self.verified
+
+    @property
+    def review_field_count(self) -> int:
+        """How many fields the review UI should highlight."""
+        return sum(len(m.get("low_confidence_fields") or []) for m in self.medicines)
+
+    @property
+    def blocking_field_count(self) -> int:
+        """How many of those are uncertain enough to hold up risk analysis."""
+        return sum(len(m.get("blocking_fields") or []) for m in self.medicines)
 
 
 @dataclass
@@ -101,8 +124,8 @@ async def _process_prescription(prescription_id: str, image_path: str) -> None:
     if record is None:
         return
     try:
-        raw_text = await asyncio.to_thread(ocr.extract_text, image_path)
-        medicines = await ocr.structure_medicines(raw_text)
+        ocr_result = await asyncio.to_thread(ocr.extract, image_path)
+        medicines = await ocr.structure_medicines(ocr_result.text)
 
         if medicines is None:
             # LLM structuring unavailable (no key / request failed) — fail
@@ -113,17 +136,30 @@ async def _process_prescription(prescription_id: str, image_path: str) -> None:
             record.status = "failed"
             return
 
-        record.medicines = [_to_medicine_out(m, i) for i, m in enumerate(medicines)]
-        record.ocr_confidence = ocr.estimate_confidence(raw_text, medicines)
+        record.medicines = [
+            _to_medicine_out(m, i, ocr_result.words)
+            for i, m in enumerate(medicines)
+        ]
+        record.ocr_confidence = ocr.aggregate_confidence(
+            [m["field_confidence"] for m in record.medicines]
+        )
         record.status = "analyzed"
+
+        # Auto-verify only when no drug name or strength is in doubt.
+        # Anything less certain than that leaves the record unverified until
+        # the patient confirms it through POST /prescriptions/{id}/verify.
+        if record.blocking_field_count == 0:
+            record.verified = True
+            record.verified_at = time.time()
+            record.verified_by_user = False
     except Exception:
         logger.exception("Prescription processing failed for %s", prescription_id)
         record.status = "failed"
 
 
-def _to_medicine_out(raw: dict, index: int) -> dict:
+def _to_medicine_out(raw: dict, index: int, words) -> dict:
     raw_name = str(raw.get("raw_name") or "").strip()
-    return {
+    medicine = {
         "id": f"m_{index + 1}",
         "raw_name": raw_name or "Unknown medicine",
         "normalized_name": raw.get("normalized_name"),
@@ -131,12 +167,15 @@ def _to_medicine_out(raw: dict, index: int) -> dict:
         "frequency": raw.get("frequency"),
         "duration_days": raw.get("duration_days"),
         "instructions": raw.get("instructions"),
-        # Real per-field OCR confidence isn't available from this pipeline
-        # (Tesseract's word-level confidence doesn't map cleanly onto
-        # LLM-restructured fields) — reported at the record level via
-        # ocr_confidence instead of faked per field here.
-        "field_confidence": {},
     }
+    scored = ocr.medicine_field_confidence(medicine, words)
+    medicine["field_confidence"] = scored
+    medicine["low_confidence_fields"] = ocr.low_confidence_fields(scored)
+    medicine["blocking_fields"] = ocr.blocking_fields(scored)
+    # Whether this specific entry was typed by the patient rather than read
+    # off the page — a corrected field is trusted absolutely.
+    medicine["user_corrected"] = False
+    return medicine
 
 
 def complete_upload(upload_id: str, user_id: str) -> PrescriptionRecord:
@@ -173,7 +212,71 @@ def reprocess(prescription_id: str) -> Optional[PrescriptionRecord]:
     if record is None or record.image_path is None:
         return record
     record.status = "processing"
+    # A re-read produces new medicines, so any earlier confirmation no
+    # longer applies to what's in the record.
+    record.verified = False
+    record.verified_at = None
+    record.verified_by_user = False
     asyncio.create_task(_process_prescription(prescription_id, record.image_path))
+    return record
+
+
+_VERIFIABLE_FIELDS = (
+    "raw_name",
+    "normalized_name",
+    "strength",
+    "frequency",
+    "duration_days",
+    "instructions",
+)
+
+
+def verify_prescription(
+    prescription_id: str, medicines: List[dict]
+) -> Optional[PrescriptionRecord]:
+    """Records the patient's confirmation of what the prescription says.
+
+    [medicines] is the full confirmed list as the patient left it — entries
+    they edited, entries they accepted untouched, entries they added, and
+    (by omission) entries they deleted. Every field on it is treated as
+    ground truth from here on: a human read the page, which beats any OCR
+    score, so confidences go to 1.0 and the review list empties.
+    """
+    record = _prescriptions.get(prescription_id)
+    if record is None:
+        return None
+
+    previous = {m["id"]: m for m in record.medicines}
+    confirmed: List[dict] = []
+    for index, incoming in enumerate(medicines):
+        medicine_id = str(incoming.get("id") or f"m_{index + 1}")
+        original = previous.get(medicine_id, {})
+        entry = {
+            "id": medicine_id,
+            "raw_name": str(incoming.get("raw_name") or "").strip()
+            or "Unknown medicine",
+        }
+        for name in _VERIFIABLE_FIELDS[1:]:
+            entry[name] = incoming.get(name)
+        entry["field_confidence"] = {
+            name: 1.0
+            for name in _VERIFIABLE_FIELDS
+            if entry.get(name) is not None and str(entry.get(name)).strip() != ""
+        }
+        entry["low_confidence_fields"] = []
+        entry["blocking_fields"] = []
+        entry["user_corrected"] = any(
+            original.get(name) != entry.get(name) for name in _VERIFIABLE_FIELDS
+        )
+        confirmed.append(entry)
+
+    record.medicines = confirmed
+    record.ocr_confidence = ocr.aggregate_confidence(
+        [m["field_confidence"] for m in confirmed]
+    )
+    record.verified = True
+    record.verified_at = time.time()
+    record.verified_by_user = True
     return record
 
 

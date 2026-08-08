@@ -14,6 +14,8 @@ class PrescriptionScan {
     this.serverId,
     this.ocrConfidence,
     this.errorMessage,
+    this.verified = false,
+    this.verifying = false,
   });
 
   final String id;
@@ -32,7 +34,23 @@ class PrescriptionScan {
   /// Set when [status] is [ScanStatus.failed]; user-facing reason.
   final String? errorMessage;
 
+  /// True once the extracted medicines are trusted — either the OCR read
+  /// every drug name and strength confidently, or the patient confirmed the
+  /// ones it wasn't sure about. Risk analysis does not run until then.
+  final bool verified;
+
+  /// True while the confirmation is in flight.
+  final bool verifying;
+
   bool get hasRisk => medicines.any((m) => m.riskLevel.index > 0);
+
+  /// True when the patient still has to confirm what was read.
+  bool get needsReview =>
+      status == ScanStatus.analyzed && medicines.isNotEmpty && !verified;
+
+  /// Fields across all medicines the review UI should highlight.
+  int get uncertainFieldCount =>
+      medicines.fold(0, (sum, m) => sum + m.uncertainFields.length);
 
   PrescriptionScan copyWith({
     String? imageRef,
@@ -44,6 +62,8 @@ class PrescriptionScan {
     double? ocrConfidence,
     String? errorMessage,
     bool clearError = false,
+    bool? verified,
+    bool? verifying,
   }) =>
       PrescriptionScan(
         id: id,
@@ -55,5 +75,7 @@ class PrescriptionScan {
         serverId: serverId ?? this.serverId,
         ocrConfidence: ocrConfidence ?? this.ocrConfidence,
         errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+        verified: verified ?? this.verified,
+        verifying: verifying ?? this.verifying,
       );
 }

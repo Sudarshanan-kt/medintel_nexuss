@@ -54,6 +54,7 @@ class ScansController extends Notifier<List<PrescriptionScan>> {
           serverId: outcome.prescriptionId,
           ocrConfidence: outcome.confidence,
           medicines: outcome.medicines,
+          verified: outcome.verified,
           clearError: true,
         ),
       ),
@@ -65,6 +66,46 @@ class ScansController extends Notifier<List<PrescriptionScan>> {
         ),
       ),
     );
+  }
+
+  /// Submits the medicines as the patient has them now — corrections
+  /// included — as their confirmation of what the prescription says. This is
+  /// what releases the risk analysis the pipeline withheld, so on success
+  /// the medicines come back carrying interaction risk levels.
+  ///
+  /// Returns an error message on failure, or null when it went through.
+  Future<String?> confirmMedicines(String scanId) async {
+    final scan = getById(scanId);
+    if (scan == null) return null;
+    if (scan.medicines.isEmpty) {
+      return 'Add at least one medicine before confirming.';
+    }
+    if (scan.verifying) return null;
+
+    _patch(scanId, (s) => s.copyWith(verifying: true, clearError: true));
+
+    final result = await ref.read(scanRepositoryProvider).verifyMedicines(
+          prescriptionId: scan.serverId ?? scan.id,
+          medicines: scan.medicines,
+        );
+
+    String? error;
+    result.when(
+      success: (outcome) => _patch(
+        scanId,
+        (s) => s.copyWith(
+          medicines: outcome.medicines,
+          verified: outcome.verified,
+          verifying: false,
+          ocrConfidence: outcome.confidence ?? s.ocrConfidence,
+        ),
+      ),
+      failure: (f) {
+        error = f.message;
+        _patch(scanId, (s) => s.copyWith(verifying: false));
+      },
+    );
+    return error;
   }
 
   void _patch(
@@ -84,42 +125,40 @@ class ScansController extends Notifier<List<PrescriptionScan>> {
     return null;
   }
 
+  // Any change to the medicine list makes an earlier confirmation stale —
+  // the risk verdict was computed for a different set of drugs. Reopening
+  // the gate forces it to be recomputed against what's actually there now.
   void addMedicine(String scanId, Medicine medicine) {
-    state = [
-      for (final s in state)
-        if (s.id == scanId)
-          s.copyWith(medicines: [...s.medicines, medicine])
-        else
-          s,
-    ];
+    _patch(
+      scanId,
+      (s) => s.copyWith(
+        medicines: [...s.medicines, medicine.confirmed(corrected: true)],
+        verified: false,
+      ),
+    );
   }
 
   void updateMedicine(String scanId, Medicine medicine) {
-    state = [
-      for (final s in state)
-        if (s.id == scanId)
-          s.copyWith(
-            medicines: [
-              for (final m in s.medicines)
-                if (m.id == medicine.id) medicine else m,
-            ],
-          )
-        else
-          s,
-    ];
+    _patch(
+      scanId,
+      (s) => s.copyWith(
+        medicines: [
+          for (final m in s.medicines)
+            if (m.id == medicine.id) medicine else m,
+        ],
+        verified: false,
+      ),
+    );
   }
 
   void removeMedicine(String scanId, String medicineId) {
-    state = [
-      for (final s in state)
-        if (s.id == scanId)
-          s.copyWith(
-            medicines:
-                s.medicines.where((m) => m.id != medicineId).toList(),
-          )
-        else
-          s,
-    ];
+    _patch(
+      scanId,
+      (s) => s.copyWith(
+        medicines: s.medicines.where((m) => m.id != medicineId).toList(),
+        verified: false,
+      ),
+    );
   }
 
   void deleteScan(String id) {

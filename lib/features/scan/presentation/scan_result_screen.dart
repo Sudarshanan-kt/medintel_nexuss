@@ -106,18 +106,28 @@ class ScanResultScreen extends ConsumerWidget {
               actionLabel: 'Add medicine',
               onAction: () => _openMedicineSheet(context, ref, null),
             )
-          else
+          else ...[
+            if (scan.needsReview) ...[
+              _ReviewBanner(scan: scan),
+              const SizedBox(height: AppSpacing.lg),
+            ],
             for (final m in scan.medicines) ...[
               MedicineCard(
                 name: '${m.name}${m.strength.isEmpty ? '' : ' ${m.strength}'}',
                 dosageLine: m.dosageLine,
                 riskLevel: m.riskLevel,
                 riskNote: m.riskNote,
-                lowConfidence: m.isLowConfidence,
+                uncertainFieldLabels: [
+                  for (final f in MedicineField.values)
+                    if (m.isUncertain(f)) f.label,
+                ],
+                riskLocked: !scan.verified,
+                interactionsChecked: m.interactionsChecked,
                 onTap: () => _openMedicineSheet(context, ref, m),
               ),
               const SizedBox(height: AppSpacing.md),
             ],
+          ],
           if (scan.status == ScanStatus.analyzed &&
               scan.medicines.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -129,11 +139,19 @@ class ScanResultScreen extends ConsumerWidget {
           ],
           if (scan.status != ScanStatus.processing) ...[
             const SizedBox(height: AppSpacing.xl),
-            PrimaryButton(
-              icon: Icons.check_rounded,
-              label: 'Save to record',
-              onPressed: () => context.go(Routes.home),
-            ),
+            if (scan.needsReview)
+              PrimaryButton(
+                icon: Icons.verified_outlined,
+                label: 'Confirm & run safety check',
+                isLoading: scan.verifying,
+                onPressed: () => _confirm(context, ref, scanId),
+              )
+            else
+              PrimaryButton(
+                icon: Icons.check_rounded,
+                label: 'Save to record',
+                onPressed: () => context.go(Routes.home),
+              ),
           ],
         ],
       ),
@@ -143,18 +161,44 @@ class ScanResultScreen extends ConsumerWidget {
   String _statusLabel(PrescriptionScan scan) => switch (scan.status) {
         ScanStatus.queued || ScanStatus.processing => 'Analyzing prescription…',
         ScanStatus.failed => scan.errorMessage ?? 'Scan failed',
-        ScanStatus.analyzed => scan.medicines.isEmpty
-            ? 'No medicines found'
-            : '${scan.medicines.length} medicine'
-                '${scan.medicines.length == 1 ? '' : 's'} found',
+        ScanStatus.analyzed => switch (scan) {
+            _ when scan.medicines.isEmpty => 'No medicines found',
+            _ when scan.needsReview => 'Needs your confirmation',
+            _ => '${scan.medicines.length} medicine'
+                '${scan.medicines.length == 1 ? '' : 's'} confirmed',
+          },
       };
 
   PillTone _statusTone(PrescriptionScan scan) => switch (scan.status) {
         ScanStatus.queued || ScanStatus.processing => PillTone.info,
         ScanStatus.failed => PillTone.danger,
         ScanStatus.analyzed =>
-          scan.medicines.isEmpty ? PillTone.warning : PillTone.success,
+          (scan.medicines.isEmpty || scan.needsReview)
+              ? PillTone.warning
+              : PillTone.success,
       };
+
+  /// Sends the medicines up as the patient has them now. Nothing is
+  /// silently accepted on their behalf — reaching this button means they
+  /// looked at the highlighted fields.
+  Future<void> _confirm(
+    BuildContext context,
+    WidgetRef ref,
+    String scanId,
+  ) async {
+    final error =
+        await ref.read(scansControllerProvider.notifier).confirmMedicines(scanId);
+    if (!context.mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: AppColors.danger),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Confirmed — checking for interactions.')),
+    );
+  }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
@@ -214,7 +258,7 @@ class _CaptureImage extends StatelessWidget {
       body = Image.file(file, fit: BoxFit.cover);
     } else {
       body = Container(
-        color: const Color(0xFF0B1220),
+        color: AppColors.darkSurface,
         alignment: Alignment.center,
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -268,6 +312,69 @@ class _CaptureImage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Review gate
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Explains why the safety check hasn't run yet and what the patient needs
+/// to do about it.
+///
+/// The wording avoids blaming the photo when the real limit is OCR on
+/// handwriting, and it says plainly that the interaction check is *waiting*
+/// rather than letting silence imply everything came back clean.
+class _ReviewBanner extends StatelessWidget {
+  const _ReviewBanner({required this.scan});
+  final PrescriptionScan scan;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = scan.uncertainFieldCount;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.tintAmber,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.fact_check_outlined,
+                color: AppColors.warning,
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  count == 0
+                      ? 'Check these before we run the safety check'
+                      : 'Check ${count == 1 ? '1 field' : '$count fields'} '
+                          'before we run the safety check',
+                  style: AppTypography.labelMd.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Handwriting is hard to read, so some of what we extracted may be '
+            'wrong. Tap any medicine to fix it. We hold the interaction check '
+            'until you confirm — a warning based on a misread name would be '
+            'worse than none.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Medicine editor sheet
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -291,6 +398,10 @@ class _MedicineEditSheetState extends ConsumerState<_MedicineEditSheet> {
       TextEditingController(text: widget.existing?.riskNote ?? '');
   late RiskLevel _risk = widget.existing?.riskLevel ?? RiskLevel.none;
 
+  /// Fields the OCR flagged, so the sheet can point at them directly.
+  Set<MedicineField> get _uncertain =>
+      widget.existing?.uncertainFields ?? const {};
+
   @override
   void dispose() {
     _name.dispose();
@@ -302,19 +413,32 @@ class _MedicineEditSheetState extends ConsumerState<_MedicineEditSheet> {
 
   bool get _isEdit => widget.existing != null;
 
+  /// True when the patient changed any value the OCR supplied.
+  bool get _changed {
+    final existing = widget.existing;
+    if (existing == null) return true;
+    return _name.text.trim() != existing.name ||
+        _strength.text.trim() != existing.strength ||
+        _dosage.text.trim() != existing.dosageLine;
+  }
+
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return;
     final notifier = ref.read(scansControllerProvider.notifier);
     if (_isEdit) {
       notifier.updateMedicine(
         widget.scanId,
-        widget.existing!.copyWith(
-          name: _name.text.trim(),
-          strength: _strength.text.trim(),
-          dosageLine: _dosage.text.trim(),
-          riskLevel: _risk,
-          riskNote: _note.text.trim().isEmpty ? null : _note.text.trim(),
-        ),
+        widget.existing!
+            .copyWith(
+              name: _name.text.trim(),
+              strength: _strength.text.trim(),
+              dosageLine: _dosage.text.trim(),
+              riskLevel: _risk,
+              riskNote: _note.text.trim().isEmpty ? null : _note.text.trim(),
+            )
+            // Whatever the OCR thought, a human has now read this off the
+            // page — the uncertainty flags are settled either way.
+            .confirmed(corrected: _changed),
       );
     } else {
       notifier.addMedicine(
@@ -382,33 +506,46 @@ class _MedicineEditSheetState extends ConsumerState<_MedicineEditSheet> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Type what the prescription says.',
+                _uncertain.isEmpty
+                    ? 'Type what the prescription says.'
+                    : 'Compare the highlighted fields against the photo and '
+                        'correct anything we misread.',
                 style: AppTypography.bodyMd
                     .copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.lg),
-              AppTextField(
-                controller: _name,
-                label: 'Name',
-                hint: 'e.g. Amoxicillin',
+              _ReviewField(
+                uncertain: _uncertain.contains(MedicineField.name),
+                child: AppTextField(
+                  controller: _name,
+                  label: 'Name',
+                  hint: 'e.g. Amoxicillin',
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: AppTextField(
-                      controller: _strength,
-                      label: 'Strength',
-                      hint: '500 mg',
+                    child: _ReviewField(
+                      uncertain: _uncertain.contains(MedicineField.strength),
+                      child: AppTextField(
+                        controller: _strength,
+                        label: 'Strength',
+                        hint: '500 mg',
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     flex: 2,
-                    child: AppTextField(
-                      controller: _dosage,
-                      label: 'Dosage',
-                      hint: '1 cap · 3×/day · 7 days',
+                    child: _ReviewField(
+                      uncertain: _uncertain.contains(MedicineField.dosage),
+                      child: AppTextField(
+                        controller: _dosage,
+                        label: 'Dosage',
+                        hint: '1 cap · 3×/day · 7 days',
+                      ),
                     ),
                   ),
                 ],
@@ -468,6 +605,55 @@ class _MedicineEditSheetState extends ConsumerState<_MedicineEditSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Wraps one input in the sheet, marking it when the OCR wasn't confident.
+///
+/// The marker is an amber rail plus a labelled caption, not a tint alone —
+/// same rule the risk states follow, so it survives colour-blindness and a
+/// washed-out screen in a pharmacy queue.
+class _ReviewField extends StatelessWidget {
+  const _ReviewField({required this.uncertain, required this.child});
+
+  final bool uncertain;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!uncertain) return child;
+    return Container(
+      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      decoration: const BoxDecoration(
+        border: Border(
+          left: BorderSide(color: AppColors.warning, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          child,
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(
+                Icons.help_outline_rounded,
+                size: 13,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'We were unsure of this — check it against the photo',
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.warning),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

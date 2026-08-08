@@ -8,6 +8,7 @@ import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/utils/result.dart';
 import '../../../shared/widgets/risk_badge.dart';
+import '../domain/dosage_format.dart';
 import '../domain/medicine.dart';
 
 /// The outcome of running the OCR pipeline on a captured prescription image:
@@ -18,11 +19,17 @@ class OcrOutcome {
     required this.prescriptionId,
     required this.medicines,
     this.confidence,
+    this.verified = false,
   });
 
   final String prescriptionId;
   final List<Medicine> medicines;
   final double? confidence;
+
+  /// False when the pipeline wasn't confident enough about a drug name or
+  /// strength to stand behind it. Risk analysis is withheld until the
+  /// patient confirms — see [ScanRepository.verifyMedicines].
+  final bool verified;
 }
 
 /// Talks to the prescription OCR backend.
@@ -54,7 +61,13 @@ class ScanRepository {
   );
 
   static const Duration _pollInterval = Duration(seconds: 2);
-  static const int _maxPolls = 12; // ~24s ceiling, then fail with a clear msg
+
+  // ~3min ceiling. Sized for the backend's local model rather than a hosted
+  // one: Tesseract is fast, but structuring a page of OCR text through a 7B
+  // model on CPU takes tens of seconds, and timing out mid-analysis would
+  // show the patient a "couldn't read this" error for a scan that was
+  // working fine.
+  static const int _maxPolls = 90;
 
   Future<Result<OcrOutcome>> processPrescription({
     required String imagePath,
@@ -117,9 +130,13 @@ class ScanRepository {
           (completed['prescription'] as Map).cast<String, dynamic>();
       final prescriptionId = prescription['id'] as String;
 
-      // 4 · poll until the worker finishes.
+      // 4 · poll until the worker finishes. The summary that comes back
+      // carries the confidence and the review verdict, which only exist
+      // once processing has actually run — the response to step 3 predates
+      // both.
       onStatus?.call('processing');
-      final status = await _pollUntilTerminal(prescriptionId, onStatus);
+      final analyzed = await _pollUntilTerminal(prescriptionId, onStatus);
+      final status = (analyzed['status'] as String?) ?? 'processing';
       if (status == 'failed') {
         return const ResultFailure(
           ServerFailure(
@@ -141,7 +158,8 @@ class ScanRepository {
       );
       final rawMeds = (medsData['medicines'] as List? ?? const [])
           .cast<Map<String, dynamic>>();
-      final confidence = (prescription['ocr_confidence'] as num?)?.toDouble();
+      final confidence = (analyzed['ocr_confidence'] as num?)?.toDouble();
+      final verified = analyzed['verified'] == true;
 
       final medicines = [
         for (var i = 0; i < rawMeds.length; i++)
@@ -152,18 +170,29 @@ class ScanRepository {
         OcrOutcome(
           prescriptionId: prescriptionId,
           confidence: confidence,
-          medicines: await _withInteractionRisk(medicines),
+          verified: verified,
+          // Withheld until the patient has confirmed an uncertain read: a
+          // risk verdict computed from a misread drug name is worse than no
+          // verdict, because it looks authoritative.
+          medicines: verified
+              ? await _withInteractionRisk(medicines, prescriptionId)
+              : medicines,
         ),
       );
     } on DioException catch (e) {
-      // No OCR backend reachable (the server isn't running / not bundled with
-      // this build). Rather than leaving the scan stuck on "Analyzing…" with
-      // no result, complete the pipeline locally so the flow is end-to-end
-      // usable — consistent with the app's demo/offline behaviour elsewhere
-      // (demo auth, simulated report analysis). When a real backend is
-      // connected and answers, the live pipeline above is used instead.
+      // No OCR backend reachable. This used to return a canned list of
+      // medicines so the flow stayed "usable" offline — which meant a
+      // patient could be shown Amoxicillin, Paracetamol and Pantoprazole
+      // that were never on their prescription, indistinguishable from a
+      // real read. Nothing here is worth that; an unreachable analyser is
+      // reported as exactly that.
       if (_isBackendUnreachable(e)) {
-        return Success(_offlineOutcome());
+        return const ResultFailure(
+          NetworkFailure(
+            "Couldn't reach the prescription analyser. Check your "
+            'connection and try again, or add the medicines manually.',
+          ),
+        );
       }
       return ResultFailure(_failureFor(e));
     } catch (e) {
@@ -186,48 +215,13 @@ class ScanRepository {
     }
   }
 
-  /// A locally-completed OCR result used when no backend is reachable, so the
-  /// scan still reaches the `analyzed` state and the result screen populates.
-  OcrOutcome _offlineOutcome() => OcrOutcome(
-        prescriptionId: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        confidence: 0.86,
-        medicines: const [
-          Medicine(
-            id: 'm_local_1',
-            name: 'Amoxicillin',
-            strength: '500 mg',
-            dosageLine: '1 capsule · 3 times a day · 7 days · After food',
-            riskLevel: RiskLevel.none,
-            confidence: 0.92,
-          ),
-          Medicine(
-            id: 'm_local_2',
-            name: 'Paracetamol',
-            strength: '650 mg',
-            dosageLine: '1 tablet · up to 3 times a day · For fever',
-            riskLevel: RiskLevel.none,
-            confidence: 0.88,
-          ),
-          Medicine(
-            id: 'm_local_3',
-            name: 'Pantoprazole',
-            strength: '40 mg',
-            dosageLine: '1 tablet · once daily · Before breakfast',
-            riskLevel: RiskLevel.moderate,
-            riskNote:
-                'May interact with other medicines — confirm with your doctor.',
-            confidence: 0.61,
-          ),
-        ],
-      );
-
   /// Polls the prescription detail endpoint until status is `analyzed` or
-  /// `failed`, returning the last observed status.
-  Future<String> _pollUntilTerminal(
+  /// `failed`, returning the last summary it saw.
+  Future<Map<String, dynamic>> _pollUntilTerminal(
     String prescriptionId,
     void Function(String status)? onStatus,
   ) async {
-    var last = 'processing';
+    var last = <String, dynamic>{'status': 'processing'};
     for (var i = 0; i < _maxPolls; i++) {
       await Future<void>.delayed(_pollInterval);
       final detail = _data(
@@ -235,13 +229,91 @@ class ScanRepository {
           ApiEndpoints.prescription(prescriptionId),
         ),
       );
-      final rx = (detail['prescription'] as Map).cast<String, dynamic>();
-      last = (rx['status'] as String?) ?? last;
-      onStatus?.call(last);
-      if (last == 'analyzed' || last == 'failed') break;
+      last = (detail['prescription'] as Map).cast<String, dynamic>();
+      final status = (last['status'] as String?) ?? 'processing';
+      onStatus?.call(status);
+      if (status == 'analyzed' || status == 'failed') break;
     }
     return last;
   }
+
+  /// Sends the patient's confirmation of [medicines] for [prescriptionId],
+  /// then runs the risk analysis that was withheld until now.
+  ///
+  /// The full confirmed list goes up, not a diff — anything the patient
+  /// removed is removed server-side too, which is how they throw out a
+  /// medicine the OCR invented.
+  Future<Result<OcrOutcome>> verifyMedicines({
+    required String prescriptionId,
+    required List<Medicine> medicines,
+  }) async {
+    // Scans completed offline have no server record to confirm against, so
+    // the confirmation is simply taken at face value locally.
+    if (prescriptionId.startsWith('local_')) {
+      return Success(
+        OcrOutcome(
+          prescriptionId: prescriptionId,
+          verified: true,
+          medicines: [for (final m in medicines) m.confirmed()],
+        ),
+      );
+    }
+
+    try {
+      final data = _data(
+        await _dio.post<Map<String, dynamic>>(
+          ApiEndpoints.prescriptionVerify(prescriptionId),
+          data: {
+            'medicines': [
+              for (final m in medicines)
+                {
+                  'id': m.id,
+                  'raw_name': _fullName(m),
+                  'normalized_name': m.name,
+                  if (m.strength.isNotEmpty) 'strength': m.strength,
+                  if (m.dosageLine.isNotEmpty) 'instructions': m.dosageLine,
+                },
+            ],
+          },
+        ),
+      );
+
+      final rx = (data['prescription'] as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{};
+      final confidence = (rx['ocr_confidence'] as num?)?.toDouble();
+      final confirmed = [for (final m in medicines) m.confirmed()];
+
+      return Success(
+        OcrOutcome(
+          prescriptionId: prescriptionId,
+          confidence: confidence,
+          verified: true,
+          medicines: await _withInteractionRisk(confirmed, prescriptionId),
+        ),
+      );
+    } on DioException catch (e) {
+      // Confirming is the patient's own correction; if the server can't be
+      // reached there's nothing to reconcile with, so honour it locally
+      // rather than trapping them behind the gate. Same offline stance the
+      // capture path takes.
+      if (_isBackendUnreachable(e)) {
+        return Success(
+          OcrOutcome(
+            prescriptionId: prescriptionId,
+            verified: true,
+            medicines: [for (final m in medicines) m.confirmed()],
+          ),
+        );
+      }
+      return ResultFailure(_failureFor(e));
+    } catch (e) {
+      return ResultFailure(UnknownFailure('Could not save your changes: $e'));
+    }
+  }
+
+  /// "Amoxicillin 500 mg" — the name as it would read on the page.
+  String _fullName(Medicine m) =>
+      m.strength.isEmpty ? m.name : '${m.name} ${m.strength}';
 
   /// Unwraps the standard `{data, meta, error}` success envelope.
   Map<String, dynamic> _data(Response<Map<String, dynamic>> res) {
@@ -256,15 +328,36 @@ class ScanRepository {
   /// to the result. Never throws — on any failure (network, engine
   /// unavailable, unexpected shape) the medicines come back unchanged
   /// (RiskLevel.none), the same safe default as before this existed.
-  Future<List<Medicine>> _withInteractionRisk(List<Medicine> medicines) async {
+  ///
+  /// [prescriptionId] is sent so the engine scores the confirmed names it
+  /// holds rather than trusting this client's copy; it answers 409 if the
+  /// prescription hasn't been confirmed, which lands in the catch below and
+  /// leaves every medicine unflagged.
+  Future<List<Medicine>> _withInteractionRisk(
+    List<Medicine> medicines, [
+    String? prescriptionId,
+  ]) async {
     if (medicines.length < 2) return medicines;
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.interactionsCheck,
-        data: {'medicine_names': medicines.map((m) => m.name).toList()},
+        data: {
+          'medicine_names': medicines.map((m) => m.name).toList(),
+          if (prescriptionId != null && !prescriptionId.startsWith('local_'))
+            'prescription_id': prescriptionId,
+        },
       );
       final data = _data(res);
       if (data['checked'] != true) return medicines;
+
+      // Drugs the interaction database has never heard of. Nothing was
+      // checked for these, and leaving them at RiskLevel.none would render
+      // a green "No interaction" badge over an all-clear that was never
+      // given.
+      final unrecognized = {
+        for (final n in (data['unrecognized'] as List? ?? const []))
+          n.toString().toLowerCase().trim(),
+      };
 
       final interactions = (data['interactions'] as List? ?? const [])
           .cast<Map<String, dynamic>>();
@@ -293,17 +386,19 @@ class ScanRepository {
         }
       }
 
-      if (riskByName.isEmpty) return medicines;
-
       return [
         for (final m in medicines)
           if (riskByName.containsKey(m.name.toLowerCase().trim()))
             m.copyWith(
               riskLevel: riskByName[m.name.toLowerCase().trim()],
               riskNote: noteByName[m.name.toLowerCase().trim()],
+              interactionsChecked: true,
             )
           else
-            m,
+            m.copyWith(
+              interactionsChecked:
+                  !unrecognized.contains(m.name.toLowerCase().trim()),
+            ),
       ];
     } catch (_) {
       return medicines;
@@ -330,23 +425,34 @@ class ScanRepository {
     final rawName = (m['raw_name'] as String?)?.trim() ?? 'Medicine';
     final strength = (m['strength'] as String?)?.trim() ?? '';
 
-    final parts = <String>[
-      if ((m['frequency'] as String?)?.trim().isNotEmpty ?? false)
-        (m['frequency'] as String).trim(),
-      if (m['duration_days'] != null) '${m['duration_days']} days',
-      if ((m['instructions'] as String?)?.trim().isNotEmpty ?? false)
-        (m['instructions'] as String).trim(),
-    ];
-
     return Medicine(
       id: (m['id'] as String?) ?? 'm_$index',
       name: (name != null && name.isNotEmpty) ? name : rawName,
       strength: strength,
-      dosageLine: parts.join(' · '),
+      // The server stores the rhythm as the page writes it ("BD", "1-0-1")
+      // so field confidence can be measured against the OCR words; it's
+      // expanded into plain language only here, for the patient to read.
+      dosageLine: formatDosageLine(
+        frequency: m['frequency'] as String?,
+        durationDays: (m['duration_days'] as num?)?.toInt(),
+        instructions: m['instructions'] as String?,
+      ),
       // The /medicines endpoint carries no risk; risk lives in alerts.
       riskLevel: RiskLevel.none,
       confidence: _confidenceOf(m['field_confidence'], fallbackConfidence),
+      uncertainFields: _fieldsFrom(m['low_confidence_fields']),
+      blockingFields: _fieldsFrom(m['blocking_fields']),
+      userCorrected: m['user_corrected'] == true,
     );
+  }
+
+  /// Collapses the backend's field keys onto the boxes the patient edits.
+  Set<MedicineField> _fieldsFrom(Object? raw) {
+    if (raw is! List) return const {};
+    return {
+      for (final key in raw)
+        if (MedicineField.fromApiKey(key.toString()) case final field?) field,
+    };
   }
 
   double _confidenceOf(Object? fieldConfidence, double? fallback) {
