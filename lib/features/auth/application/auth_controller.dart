@@ -123,18 +123,31 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   // ── Sign In ───────────────────────────────────────────────────────────────
 
-  Future<void> loginWithEmail(String email, String password) async {
+  /// [roleHint] is which sign-in screen the user came through.
+  ///
+  /// It is only a fallback for an account that has no role recorded yet —
+  /// a first Google sign-in, say. An existing account always keeps the role
+  /// stored on its profile, so arriving via the caregiver screen can never
+  /// turn a patient account into a caregiver one (or hand it someone else's
+  /// data).
+  Future<void> loginWithEmail(
+    String email,
+    String password, {
+    UserRole roleHint = UserRole.patient,
+  }) async {
     state = const AsyncLoading();
     final result = await _repo.loginWithEmail(email: email, password: password);
-    state = AsyncData(await _fromUserResult(result));
+    state = AsyncData(await _fromUserResult(result, fallback: roleHint));
   }
 
   // ── Google Sign-In ────────────────────────────────────────────────────────
 
-  Future<void> signInWithGoogle() async {
+  Future<void> signInWithGoogle({
+    UserRole roleHint = UserRole.patient,
+  }) async {
     state = const AsyncLoading();
     final result = await _repo.signInWithGoogle();
-    state = AsyncData(await _fromUserResult(result));
+    state = AsyncData(await _fromUserResult(result, fallback: roleHint));
   }
 
   /// Web equivalent of [signInWithGoogle] — completes the sign-in from the
@@ -201,10 +214,13 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _fromUserResult(Result<AuthUser> result) async {
+  Future<AuthState> _fromUserResult(
+    Result<AuthUser> result, {
+    UserRole fallback = UserRole.patient,
+  }) async {
     return result.when(
       success: (user) async {
-        final resolved = await _withResolvedRole(user);
+        final resolved = await _withResolvedRole(user, fallback: fallback);
         return AuthState(
           status: resolved.role == UserRole.caregiver
               ? AuthStatus.authenticated

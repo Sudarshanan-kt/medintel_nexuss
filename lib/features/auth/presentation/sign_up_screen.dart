@@ -18,6 +18,11 @@ import 'google_web_button.dart';
 /// Collects: full name, email, password, confirm password.
 /// Validates all fields before calling [AuthController.signUp].
 /// Handles the "email confirmation required" case gracefully.
+/// Violet — the caregiver identity used by the caregiver sign-in screen
+/// and dashboard. Selecting the caregiver role here should preview where
+/// the account is going to land.
+const Color caregiverAccent = Color(0xFF7C5CFC);
+
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
@@ -37,6 +42,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   String? _errorMessage;
   bool _emailConfirmationPending = false;
   UserRole _role = UserRole.patient;
+
+  bool get _isCaregiver => _role == UserRole.caregiver;
 
   @override
   void dispose() {
@@ -137,7 +144,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Join MedIntel Nexus to manage your health intelligently.',
+                  _isCaregiver
+                      ? 'Look after someone else\u2019s medicines, doses and '
+                          'appointments.'
+                      : 'Join MedIntel Nexus to manage your health '
+                          'intelligently.',
                   style: AppTypography.bodyMd
                       .copyWith(color: AppColors.textSecondary),
                 ),
@@ -245,6 +256,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                 // Create account button
                 PrimaryButton(
+                  // Follows the selected role, so the primary action looks
+                  // like the side of the app it creates.
+                  gradient: _isCaregiver
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFB6A4FF), Color(0xFF5B3FD9)],
+                        )
+                      : null,
                   label: 'Create account',
                   icon: Icons.person_add_rounded,
                   isLoading: isLoading,
@@ -287,8 +307,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             isLoading ? null : () => context.go(Routes.signIn),
                         child: Text(
                           'Sign in',
-                          style: AppTypography.labelMd
-                              .copyWith(color: AppColors.primary),
+                          style: AppTypography.labelMd.copyWith(
+                            color: _isCaregiver
+                                ? caregiverAccent
+                                : AppColors.primary,
+                          ),
                         ),
                       ),
                     ],
@@ -336,6 +359,7 @@ class _RoleToggle extends StatelessWidget {
             child: _RoleOption(
               label: "I'm a patient",
               icon: Icons.person_rounded,
+              accent: AppColors.primaryDeep,
               selected: value == UserRole.patient,
               onTap:
                   enabled ? () => onChanged(UserRole.patient) : null,
@@ -345,6 +369,7 @@ class _RoleToggle extends StatelessWidget {
             child: _RoleOption(
               label: "I'm a caregiver",
               icon: Icons.favorite_rounded,
+              accent: caregiverAccent,
               selected: value == UserRole.caregiver,
               onTap:
                   enabled ? () => onChanged(UserRole.caregiver) : null,
@@ -362,12 +387,18 @@ class _RoleOption extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
+    required this.accent,
   });
 
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback? onTap;
+
+  /// Colour of this option when it's the chosen one. Each role owns a
+  /// colour, so selecting "caregiver" has to look like the caregiver side of
+  /// the app rather than staying on the patient green.
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -396,14 +427,13 @@ class _RoleOption extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: selected ? AppColors.primary : AppColors.textSecondary,
+              color: selected ? accent : AppColors.textSecondary,
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
               label,
               style: AppTypography.labelMd.copyWith(
-                color:
-                    selected ? AppColors.primaryDeep : AppColors.textSecondary,
+                color: selected ? accent : AppColors.textSecondary,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

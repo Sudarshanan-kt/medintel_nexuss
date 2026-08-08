@@ -8,11 +8,13 @@ import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/care_circle/presentation/accept_invite_screen.dart';
 import '../../features/care_circle/presentation/care_circle_screen.dart';
+import '../../features/care_circle/presentation/caregiver_dashboard_screen.dart';
 import '../../features/dashboard/presentation/health_timeline_screen.dart';
 import '../../features/interactions/presentation/interaction_checker_screen.dart';
 import '../../features/reports/presentation/biomarker_trend_screen.dart';
 import '../../features/triage/presentation/triage_result_screen.dart';
 import '../../features/vitals/presentation/health_insights_screen.dart';
+import '../../features/auth/presentation/caregiver_login_screen.dart';
 import '../../features/auth/presentation/email_login_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/healthcare_onboarding_screen.dart';
@@ -51,6 +53,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, s) => _sharedAxis(s, const EmailLoginScreen()),
       ),
       GoRoute(
+        path: Routes.caregiverSignIn,
+        pageBuilder: (_, s) => _sharedAxis(s, const CaregiverLoginScreen()),
+      ),
+      GoRoute(
         path: Routes.signUp,
         pageBuilder: (_, s) => _sharedAxis(s, const SignUpScreen()),
       ),
@@ -66,7 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.caregiverHome,
         pageBuilder: (_, s) =>
-            _sharedAxis(s, const CareCircleScreen(caregiverMode: true)),
+            _sharedAxis(s, const CaregiverDashboardScreen()),
       ),
 
       // ── Standalone feature pages ───────────────────────────────────────
@@ -225,11 +231,27 @@ String? _redirect(Ref ref, GoRouterState state) {
               UserRole.caregiver;
       final landing = isCaregiver ? Routes.caregiverHome : Routes.home;
       if (isAuthRoute || isSplash) return landing;
-      if (isCaregiver && loc != Routes.caregiverHome) return landing;
+      if (isCaregiver && !_caregiverRoutes.contains(loc)) return landing;
       if (!isCaregiver && loc == Routes.caregiverHome) return landing;
       return null;
   }
 }
+
+/// Everywhere a caregiver is allowed to go.
+///
+/// Caregivers are otherwise pinned to their own home, which is what keeps
+/// them out of the patient shell — they have no medicines, scans or reports
+/// of their own, and those screens read the signed-in user's data. This is
+/// the small set that genuinely belongs to them: their dashboard, the circle
+/// they manage, and their own account.
+///
+/// Anything added here must be a screen that works without patient health
+/// data, or a caregiver will land on an empty or misleading page.
+const Set<String> _caregiverRoutes = {
+  Routes.caregiverHome,
+  Routes.careCircle,
+  Routes.profile,
+};
 
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(Ref ref) {

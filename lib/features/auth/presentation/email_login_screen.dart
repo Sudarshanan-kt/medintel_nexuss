@@ -10,6 +10,7 @@ import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/google_logo.dart';
 import '../application/auth_controller.dart';
 import 'google_web_button.dart';
+import '../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local design tokens.
@@ -22,14 +23,18 @@ import 'google_web_button.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Color _bg = Color(0xFFF1F4F6);
-const Color _green = Color(0xFF12A97D);
+const Color _green = AppColors.primary;
 const Color _greenLight = Color(0xFF5FD6A4);
-const Color _greenDeep = Color(0xFF0B8F63);
+const Color _greenDeep = AppColors.primaryDeep;
 const Color _ink = Color(0xFF1B2B33);
 const Color _muted = Color(0xFF7C8D96);
 const Color _fieldFill = Color(0xFFFBFCFC);
 const Color _fieldStroke = Color(0xFFE8EDF0);
 const Color _backdropTint = Color(0xFFB9D2E4);
+
+/// Violet, matching the caregiver side of the app — the link to it should
+/// look like where it leads, not like the rest of this screen.
+const Color _caregiverAccent = Color(0xFF7C5CFC);
 
 const LinearGradient _brandGradient = LinearGradient(
   begin: Alignment.topLeft,
@@ -281,6 +286,31 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                       ),
                     ],
                   ),
+
+                  // The other door. Someone looking after a parent has no
+                  // reason to guess that this screen would work for them,
+                  // so the caregiver side is named explicitly.
+                  const SizedBox(height: 6),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: isLoading
+                          ? null
+                          : () => context.go(Routes.caregiverSignIn),
+                      icon: const Icon(
+                        Icons.volunteer_activism_rounded,
+                        size: 17,
+                        color: _caregiverAccent,
+                      ),
+                      label: const Text(
+                        "I'm caring for someone else",
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: _caregiverAccent,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -451,7 +481,7 @@ class _GlassCard extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8DA4B4).withValues(alpha: 0.16),
+                color: AppColors.textMuted.withValues(alpha: 0.16),
                 blurRadius: 40,
                 offset: const Offset(0, 18),
               ),
@@ -668,7 +698,7 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Container(height: 1, color: const Color(0xFFDFE7EB))),
+        Expanded(child: Container(height: 1, color: AppColors.outline)),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 14),
           child: Text(
@@ -676,7 +706,7 @@ class _OrDivider extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: _muted),
           ),
         ),
-        Expanded(child: Container(height: 1, color: const Color(0xFFDFE7EB))),
+        Expanded(child: Container(height: 1, color: AppColors.outline)),
       ],
     );
   }
@@ -700,7 +730,7 @@ class _SocialButton extends StatelessWidget {
           border: Border.all(color: Colors.white),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8DA4B4).withValues(alpha: 0.18),
+              color: AppColors.textMuted.withValues(alpha: 0.18),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),

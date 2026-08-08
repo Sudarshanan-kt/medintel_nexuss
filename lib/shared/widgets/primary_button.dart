@@ -15,6 +15,7 @@ class PrimaryButton extends StatefulWidget {
     this.icon,
     this.isLoading = false,
     this.expand = true,
+    this.gradient,
   });
 
   final String label;
@@ -22,6 +23,13 @@ class PrimaryButton extends StatefulWidget {
   final IconData? icon;
   final bool isLoading;
   final bool expand;
+
+  /// Overrides the brand gradient.
+  ///
+  /// For the few surfaces that belong to a different identity than the
+  /// patient brand — the caregiver flows use violet — so the primary action
+  /// looks like the side of the app it leads to.
+  final Gradient? gradient;
 
   @override
   State<PrimaryButton> createState() => _PrimaryButtonState();
@@ -56,7 +64,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
             height: 56,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             decoration: BoxDecoration(
-              gradient: AppColors.brandGradient,
+              gradient: widget.gradient ?? AppColors.brandGradient,
               borderRadius: BorderRadius.circular(AppRadius.md),
               boxShadow: _enabled ? AppShadows.brandGlow : null,
             ),

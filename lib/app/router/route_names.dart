@@ -6,6 +6,9 @@ abstract final class Routes {
 
   // Auth
   static const String signIn = '/auth/signin';
+  /// Caregiver-branded sign-in. Same auth, different audience — see
+  /// `CaregiverLoginScreen`.
+  static const String caregiverSignIn = '/auth/caregiver-signin';
   static const String signUp = '/auth/signup';
   static const String forgotPassword = '/auth/forgot-password';
   static const String onboarding = '/auth/onboarding';
