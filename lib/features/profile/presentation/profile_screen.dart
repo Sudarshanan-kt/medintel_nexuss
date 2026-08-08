@@ -15,6 +15,8 @@ import '../../scan/application/scans_controller.dart';
 import '../application/profile_controller.dart';
 import '../domain/profile_record.dart';
 import 'profile_sheets.dart';
+import '../../../core/network/server_config.dart';
+import 'server_settings_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -64,7 +66,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ? personal.phone
         : (user?.phone ?? 'Add your phone number');
 
-    return GradientScaffold(
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -308,6 +311,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     body:
                         'Your prescriptions and reports are encrypted at rest and in transit. AI analysis runs server-side and is never sold or used to train external models. You can request export or deletion at any time.',
                   ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // ── Connection ─────────────────────────────────────────────
+            // The backend runs on a laptop whose address changes with the
+            // network. Editable here so a new address is a ten-second fix
+            // rather than a rebuild.
+            const _SectionLabel(label: 'Connection'),
+            const SizedBox(height: AppSpacing.sm),
+            _SettingsCard(
+              children: [
+                Consumer(
+                  builder: (context, ref, _) {
+                    final baseUrl = ref.watch(serverConfigProvider);
+                    return _TileRow(
+                      icon: Icons.dns_rounded,
+                      tint: AppColors.tintSky,
+                      fg: AppColors.info,
+                      label: 'Server address',
+                      trailing:
+                          baseUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                      onTap: () => showServerSettingsSheet(context),
+                    );
+                  },
                 ),
               ],
             ),
@@ -622,29 +652,44 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        gradient: AppColors.brandGradient,
+        // Near-black rather than the brand gradient. A single dark block is
+        // what gives a settings screen a centre of gravity — a full-bleed
+        // gradient competes with the tinted rows below it and reads busy.
+        color: AppColors.heroDark,
         borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: AppShadows.brandGlow,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.heroDark.withValues(alpha: 0.30),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
+              // Circular, with a brand-gradient ring — the one place on the
+              // screen the brand colour appears at full strength.
               Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.35),
-                  ),
+                width: 66,
+                height: 66,
+                padding: const EdgeInsets.all(2.5),
+                decoration: const BoxDecoration(
+                  gradient: AppColors.brandGradient,
+                  shape: BoxShape.circle,
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  _initials,
-                  style: AppTypography.headlineMd
-                      .copyWith(color: Colors.white, fontSize: 22),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AppColors.heroDark,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    _initials,
+                    style: AppTypography.headlineMd
+                        .copyWith(color: Colors.white, fontSize: 21),
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.lg),
@@ -656,14 +701,17 @@ class _HeroCard extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.titleMd
-                          .copyWith(color: Colors.white, fontSize: 18),
+                      style: AppTypography.headlineMd.copyWith(
+                        color: Colors.white,
+                        fontSize: 21,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       phone,
                       style: AppTypography.bodyMd.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
+                        color: Colors.white.withValues(alpha: 0.62),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -673,7 +721,7 @@ class _HeroCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.20),
+                        color: AppColors.primary.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Row(
@@ -683,7 +731,7 @@ class _HeroCard extends StatelessWidget {
                             width: 6,
                             height: 6,
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.primary,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -691,7 +739,7 @@ class _HeroCard extends StatelessWidget {
                           Text(
                             'Patient account',
                             style: AppTypography.caption.copyWith(
-                              color: Colors.white,
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -788,35 +836,42 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline),
-        boxShadow: AppShadows.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.outlineSoft),
       ),
+      // Centred, circular medallion — the same language as the dashboard's
+      // quick actions, so the two screens read as one product.
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: fg, size: 18),
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+            child: Icon(icon, color: fg, size: 19),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Text(
             value,
-            style: AppTypography.headlineMd
-                .copyWith(color: AppColors.textPrimary, fontSize: 22),
+            style: AppTypography.headlineMd.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 24,
+              letterSpacing: -0.5,
+            ),
           ),
+          const SizedBox(height: 1),
           Text(
             label,
-            style:
-                AppTypography.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -830,14 +885,17 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sentence case at full weight, not tiny letter-spaced caps. Caps in a
+    // pale tertiary grey is the single thing that made this screen read as
+    // a settings dump rather than a designed page.
     return Padding(
-      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      padding: const EdgeInsets.only(left: 2),
       child: Text(
-        label.toUpperCase(),
-        style: AppTypography.labelMd.copyWith(
-          color: AppColors.textTertiary,
-          fontSize: 11,
-          letterSpacing: 1.4,
+        label,
+        style: AppTypography.titleMd.copyWith(
+          color: AppColors.textPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -853,12 +911,13 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline),
-        boxShadow: AppShadows.card,
+        // Larger radius and a softer stroke than the old card: against the
+        // grey canvas the border only needs to separate, not outline.
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.outlineSoft),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(20),
         child: Column(children: children),
       ),
     );
@@ -888,18 +947,18 @@ class _TileRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
+          // Taller rows. The old 12px vertical made a 5-row card feel
+          // cramped, which is most of what read as unpolished.
+          vertical: 15,
         ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: tint,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Icon(icon, color: fg, size: 18),
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+              child: Icon(icon, color: fg, size: 19),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -907,7 +966,7 @@ class _TileRow extends StatelessWidget {
                 label,
                 style: AppTypography.bodyLg.copyWith(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -957,18 +1016,16 @@ class _DetailRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
+        vertical: 15,
       ),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: fg, size: 18),
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+            child: Icon(icon, color: fg, size: 19),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -976,7 +1033,7 @@ class _DetailRow extends StatelessWidget {
               label,
               style: AppTypography.bodyLg.copyWith(
                 color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -1005,7 +1062,7 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Divider(height: 1, thickness: 1, color: AppColors.outline),
+      child: Divider(height: 1, thickness: 1, color: AppColors.outlineSoft),
     );
   }
 }

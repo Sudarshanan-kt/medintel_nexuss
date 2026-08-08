@@ -335,7 +335,7 @@ class _ScanOverlayPainter extends CustomPainter {
     canvas.drawRRect(
       rect,
       Paint()
-        ..color = const Color(0xFF22D3EE)
+        ..color = AppColors.accentCyan
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
@@ -364,9 +364,9 @@ class _ScanOverlayPainter extends CustomPainter {
       Paint()
         ..shader = LinearGradient(
           colors: [
-            const Color(0xFF22D3EE).withValues(alpha: 0),
-            const Color(0xFF22D3EE),
-            const Color(0xFF22D3EE).withValues(alpha: 0),
+            AppColors.accentCyan.withValues(alpha: 0),
+            AppColors.accentCyan,
+            AppColors.accentCyan.withValues(alpha: 0),
           ],
         ).createShader(Rect.fromLTWH(dx, lineY, frameW, 1))
         ..strokeWidth = 2,

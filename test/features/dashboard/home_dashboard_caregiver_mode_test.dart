@@ -101,7 +101,7 @@ void main() {
 
     expect(find.byType(Switch), findsOneWidget);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-    expect(find.text('Today Overview'), findsOneWidget);
+    expect(find.text('Adherence'), findsOneWidget);
   });
 
   testWidgets('caregiver mode with no linked patients shows the empty-state CTA',
@@ -114,7 +114,7 @@ void main() {
 
     expect(find.text("You're not caring for anyone yet."), findsOneWidget);
     expect(find.text('Manage Care Circle'), findsOneWidget);
-    expect(find.text('Today Overview'), findsNothing);
+    expect(find.text('Adherence'), findsNothing);
   });
 
   testWidgets('caregiver mode shows the linked patient, not the patient dashboard',
@@ -129,7 +129,7 @@ void main() {
     expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
     expect(find.text('Grandma Rosa'), findsOneWidget);
     expect(find.text('Manage Care Circle'), findsOneWidget);
-    expect(find.text('Today Overview'), findsNothing);
+    expect(find.text('Adherence'), findsNothing);
     expect(find.text('Quick actions'), findsNothing);
   });
 
@@ -140,13 +140,13 @@ void main() {
       linkedPatients: [linkedPatient],
     );
 
-    expect(find.text('Today Overview'), findsOneWidget);
+    expect(find.text('Adherence'), findsOneWidget);
     expect(find.text('Grandma Rosa'), findsNothing);
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
     expect(find.text('Grandma Rosa'), findsOneWidget);
-    expect(find.text('Today Overview'), findsNothing);
+    expect(find.text('Adherence'), findsNothing);
   });
 }

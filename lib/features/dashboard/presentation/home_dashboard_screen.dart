@@ -16,6 +16,7 @@ import '../../reports/domain/medical_report.dart';
 import '../../scan/domain/prescription_scan.dart';
 import '../application/dashboard_controller.dart';
 import '../domain/quick_action.dart';
+import '../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local design tokens.
@@ -27,10 +28,10 @@ import '../domain/quick_action.dart';
 // changes, none of its data or navigation.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Color _bg = Color(0xFFEFF3F5);
-const Color _green = Color(0xFF12A97D);
+const Color _bg = AppColors.canvas;
+const Color _green = AppColors.primary;
 const Color _greenLight = Color(0xFF5FD6A4);
-const Color _greenDeep = Color(0xFF0B8F63);
+const Color _greenDeep = AppColors.primaryDeep;
 const Color _ink = Color(0xFF1B2B33);
 const Color _muted = Color(0xFF7C8D96);
 const Color _card = Colors.white;
@@ -83,7 +84,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     final viewMode = ref.watch(dashboardViewModeProvider);
     final name = auth?.user?.displayName ?? 'there';
     final firstName = name.trim().split(RegExp(r'\s+')).first;
-    final nextDose = _nextDoseSlot(reminders.activeMedicines);
+    final nextDose = _nextDoseSlot(reminders.activeMedicines, reminders.logs);
     final recent = _sortedActivity(t, dash.recentScans, dash.recentReports);
 
     final showCaregiverView = viewMode == DashboardViewMode.caregiver;
@@ -97,6 +98,16 @@ class HomeDashboardScreen extends ConsumerWidget {
               tint: showCaregiverView ? _violetBackdropTint : _backdropTint,
             ),
           ),
+          // The illustrated header sits behind the greeting only, so the
+          // motif frames the top of the page and fades out before the
+          // cards begin. Caregiver mode keeps its own plain identity.
+          if (!showCaregiverView)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _HeaderIllustration(),
+            ),
           SafeArea(
             bottom: false,
             child: ListView(
@@ -158,72 +169,69 @@ class HomeDashboardScreen extends ConsumerWidget {
                     style: TextStyle(fontSize: 14.5, color: _muted),
                   ),
 
+                  // Dark hero beside the pastel action grid — the
+                  // reference's top block. The hero is given slightly less
+                  // width so the four medallions stay comfortably square.
                   const SizedBox(height: 22),
-                  const _HeroBanner(),
-
-                  const SizedBox(height: 26),
-                  _SectionHeader(
-                    title: 'Today Overview',
-                    onSeeAll: () => context.go(Routes.reports),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _OverviewCard(
-                          icon: Icons.medication_rounded,
-                          iconColor: _green,
-                          iconBg: const Color(0xFFDFF6EB),
-                          label: 'Medicines',
-                          value: '${dash.medicineCount}',
-                          caption: t.statScansCount(dash.scansCount),
-                          captionColor: _muted,
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 42,
+                          child: _ScoreHeroCard(
+                            percent: adherence.weeklyPercent,
+                            onTap: () => context.go(Routes.reminders),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _OverviewCard(
-                          icon: Icons.event_available_rounded,
-                          iconColor: _greenDeep,
-                          iconBg: const Color(0xFFDFF6EB),
-                          label: 'Adherence',
-                          value: adherence.weeklyPercent < 0
-                              ? '—'
-                              : '${adherence.weeklyPercent.round()}%',
-                          caption: 'This Week',
-                          captionColor: _muted,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 58,
+                          child: _QuickActionGrid(
+                            children: [
+                              _ActionMedallion(
+                                icon: Icons.medication_rounded,
+                                tint: AppColors.tintGreen,
+                                iconColour: _green,
+                                label: 'Medicines',
+                                caption: t.statScansCount(dash.scansCount),
+                                onTap: () => context.go(Routes.reminders),
+                              ),
+                              _ActionMedallion(
+                                icon: Icons.description_rounded,
+                                tint: AppColors.tintViolet,
+                                iconColour: AppColors.accentViolet,
+                                label: 'Reports',
+                                caption: '${dash.reportsCount} uploaded',
+                                onTap: () => context.go(Routes.reports),
+                              ),
+                              _ActionMedallion(
+                                icon: Icons.notifications_rounded,
+                                tint: AppColors.tintAmber,
+                                iconColour: _amber,
+                                label: 'Reminders',
+                                caption: '${dash.medicineCount} active',
+                                onTap: () => context.go(Routes.reminders),
+                              ),
+                              _ActionMedallion(
+                                icon: Icons.shield_rounded,
+                                tint: dash.riskAlertCount > 0
+                                    ? AppColors.tintRed
+                                    : AppColors.tintSky,
+                                iconColour: dash.riskAlertCount > 0
+                                    ? _red
+                                    : AppColors.info,
+                                label: 'Alerts',
+                                caption: dash.riskAlertCount > 0
+                                    ? t.statReviewNow
+                                    : t.statAllClear,
+                                onTap: () => context.go(Routes.reports),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _OverviewCard(
-                          icon: Icons.description_rounded,
-                          iconColor: _red,
-                          iconBg: const Color(0xFFFBE7E5),
-                          label: 'Reports',
-                          value: '${dash.reportsCount}',
-                          caption: 'Uploaded',
-                          captionColor: _muted,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _OverviewCard(
-                          icon: Icons.shield_rounded,
-                          iconColor: dash.riskAlertCount > 0 ? _red : _green,
-                          iconBg: dash.riskAlertCount > 0
-                              ? const Color(0xFFFBE7E5)
-                              : const Color(0xFFDFF6EB),
-                          label: 'Alerts',
-                          value: '${dash.riskAlertCount}',
-                          caption: dash.riskAlertCount > 0
-                              ? t.statReviewNow
-                              : t.statAllClear,
-                          captionColor:
-                              dash.riskAlertCount > 0 ? _red : _green,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -402,7 +410,7 @@ class _RoundIconButton extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8DA4B4).withValues(alpha: 0.14),
+                color: AppColors.textMuted.withValues(alpha: 0.14),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -488,7 +496,7 @@ class _CaregiverSwitch extends StatelessWidget {
             borderRadius: BorderRadius.circular(23),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8DA4B4).withValues(alpha: 0.14),
+                color: AppColors.textMuted.withValues(alpha: 0.14),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -532,181 +540,16 @@ class _CaregiverSwitch extends StatelessWidget {
 // Hero motivational banner
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFDCF3E8), Color(0xFFE9F5F0)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.verified_user_rounded, color: _green, size: 22),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    style: TextStyle(fontSize: 15.5, color: _ink, height: 1.3),
-                    children: [
-                      TextSpan(text: 'Health is your '),
-                      TextSpan(
-                        text: 'greatest wealth',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: _greenDeep,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Stay consistent. Stay healthy.',
-                  style: TextStyle(fontSize: 13, color: _muted),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.favorite_rounded, color: _greenLight, size: 34),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Section header with "See all"
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.onSeeAll});
-  final String title;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: _ink,
-            ),
-          ),
-        ),
-        if (onSeeAll != null)
-          GestureDetector(
-            onTap: onSeeAll,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'See All',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _green,
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: _green, size: 20),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Today Overview card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.label,
-    required this.value,
-    required this.caption,
-    required this.captionColor,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String label;
-  final String value;
-  final String caption;
-  final Color captionColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _cardStroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, size: 17, color: iconColor),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: _muted, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-              color: _ink,
-            ),
-          ),
-          Text(
-            caption,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, color: captionColor, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Next Medicine
@@ -741,7 +584,7 @@ class _NextMedicineCard extends StatelessWidget {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                color: const Color(0xFFDFF6EB),
+                color: AppColors.primarySoft,
                 shape: BoxShape.circle,
                 border: Border.all(color: _green.withValues(alpha: 0.35), width: 2),
               ),
@@ -1125,7 +968,7 @@ class _EmergencyCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFFBE7E5),
+                color: AppColors.tintRed,
                 shape: BoxShape.circle,
                 border: Border.all(color: _red.withValues(alpha: 0.4), width: 1.5),
               ),
@@ -1159,21 +1002,24 @@ class _AssistantCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _card,
+          // The reference gives this card its own soft gradient so the
+          // assistant reads as a distinct surface rather than one more
+          // white card in the stack.
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              AppColors.tintGreen,
+              AppColors.tintSky,
+              AppColors.tintViolet,
+            ],
+          ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _cardStroke),
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: Color(0xFFDFF6EB),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.smart_toy_rounded, color: _greenDeep, size: 22),
-            ),
+            const _RobotMascot(size: 52),
             const SizedBox(width: 14),
             const Expanded(
               child: Column(
@@ -1502,38 +1348,56 @@ class _QuickActionsSheet extends ConsumerWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _ink),
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 14,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.85,
-            children: [
-              for (final a in QuickAction.values)
-                _QuickActionTile(
-                  action: a,
-                  label: _quickActionLabel(t, a),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    if (a.routePath != null) {
-                      context.go(a.routePath!);
-                    } else {
-                      final label = _quickActionLabel(t, a).replaceAll('\n', ' ');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: _ink,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          content: Text(t.comingSoon(label)),
-                        ),
-                      );
-                    }
-                  },
-                ),
-            ],
+          // A Wrap, not GridView.count. `childAspectRatio` sizes each cell
+          // as a *ratio* of its width, so on a wide phone (this app's
+          // primary device is 480dp across) the cells grew to ~165dp tall
+          // around ~90dp of content — leaving 75dp of dead space in every
+          // row. A Wrap's row height is driven by the tallest child, so it
+          // hugs the content at any width, and the ragged last row falls
+          // out naturally instead of leaving empty grid cells.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const columns = 3;
+              const gap = 10.0;
+              final tileWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: 18,
+                children: [
+                  for (final a in QuickAction.values)
+                    SizedBox(
+                      width: tileWidth,
+                      child: _QuickActionTile(
+                        action: a,
+                        label: _quickActionLabel(t, a),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          if (a.routePath != null) {
+                            context.go(a.routePath!);
+                            return;
+                          }
+                          // Every action currently has a route; this stays
+                          // as the honest fallback if one is ever added
+                          // before its screen exists.
+                          final label =
+                              _quickActionLabel(t, a).replaceAll('\n', ' ');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: _ink,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              content: Text(t.comingSoon(label)),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1552,6 +1416,20 @@ class _QuickActionTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// The icon colour that goes with this action's tint.
+  ///
+  /// Each tint is a pale wash of a different hue, and the icon has to be
+  /// the saturated version of that same hue or it won't read against it —
+  /// a green icon on a red wash is the kind of mismatch that makes a grid
+  /// look accidental.
+  Color get _iconColour => switch (action.tint) {
+        AppColors.tintRed => _red,
+        AppColors.tintAmber => _amber,
+        AppColors.tintViolet => AppColors.accentViolet,
+        AppColors.tintCyan => AppColors.accentCyan,
+        _ => _greenDeep,
+      };
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -1560,22 +1438,32 @@ class _QuickActionTile extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // `action.tint` — the enum has defined a distinct colour per
+          // action all along and this hardcoded primarySoft over it, so ten
+          // different destinations rendered as ten identical mint circles
+          // with nothing to tell them apart at a glance.
           Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
-              color: Color(0xFFDFF6EB),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: action.tint,
               shape: BoxShape.circle,
             ),
-            child: Icon(action.icon, color: _greenDeep, size: 22),
+            child: Icon(action.icon, color: _iconColour, size: 23),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 9),
           Text(
             label,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _ink),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: _ink,
+              height: 1.3,
+            ),
           ),
         ],
       ),
@@ -1702,25 +1590,536 @@ class _DoseSlot {
   }
 }
 
-_DoseSlot? _nextDoseSlot(List<Medicine> activeMedicines) {
+/// The next dose still waiting to be acted on.
+///
+/// [logs] is what makes this "still waiting": a dose already marked taken,
+/// skipped or snoozed today is finished, and offering "Mark taken" for it
+/// again is how the same dose used to get logged repeatedly — inflating the
+/// adherence percentage with every tap.
+///
+/// Returns null when everything scheduled for today has been dealt with,
+/// which the caller shows as "all medicines taken" rather than looping back
+/// to the first slot.
+_DoseSlot? _nextDoseSlot(
+  List<Medicine> activeMedicines,
+  List<DoseLog> logs,
+) {
+  final now = DateTime.now();
+
+  bool isDone(Medicine m, String slotKey) => logs.any(
+        (l) =>
+            l.medicineId == m.id &&
+            l.scheduleSlot == slotKey &&
+            l.timestamp.year == now.year &&
+            l.timestamp.month == now.month &&
+            l.timestamp.day == now.day,
+      );
+
   final slots = <_DoseSlot>[];
   for (final m in activeMedicines) {
-    if (m.morning) {
+    if (m.morning && !isDone(m, 'morning')) {
       slots.add(_DoseSlot(m, _DoseSlotKind.morning, m.morningHour, m.morningMinute));
     }
-    if (m.afternoon) {
+    if (m.afternoon && !isDone(m, 'afternoon')) {
       slots.add(_DoseSlot(m, _DoseSlotKind.afternoon, m.afternoonHour, m.afternoonMinute));
     }
-    if (m.night) {
+    if (m.night && !isDone(m, 'night')) {
       slots.add(_DoseSlot(m, _DoseSlotKind.night, m.nightHour, m.nightMinute));
     }
   }
   if (slots.isEmpty) return null;
 
   slots.sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
-  final nowMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
+  final nowMinutes = now.hour * 60 + now.minute;
   return slots.firstWhere(
     (s) => s.minutesOfDay >= nowMinutes,
-    orElse: () => slots.first, // nothing left today — show tomorrow's earliest
+    // Everything left is overdue — surface the earliest of those rather
+    // than jumping to tomorrow, since an overdue dose is the thing the
+    // patient most needs to see.
+    orElse: () => slots.first,
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Illustrated header
+//
+// A stand-in for the rendered 3D artwork in the design reference (heart with
+// an ECG trace, on a lit podium). It's drawn rather than dropped in as an
+// image so the header is complete and on-palette today, and so it scales to
+// any screen without shipping a large asset.
+//
+// To replace it with real artwork: drop the file into assets/images/, swap
+// the CustomPaint below for an Image.asset with the same height and
+// BoxFit.cover, and delete the painter. Nothing else references it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HeaderIllustration extends StatelessWidget {
+  const _HeaderIllustration({this.height = 210});
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: CustomPaint(painter: _HeaderIllustrationPainter()),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderIllustrationPainter extends CustomPainter {
+  /// Kept well below the text that sits on top — this is atmosphere, not
+  /// content, and the greeting has to stay the most legible thing here.
+  static const double _motifOpacity = 0.28;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Soft wash, brightest behind the motif so the heart reads as lit.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0.35, -0.2),
+          radius: 1.1,
+          colors: [
+            AppColors.headerWash,
+            AppColors.headerWash.withValues(alpha: 0.55),
+            AppColors.canvas.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.55, 1],
+        ).createShader(Offset.zero & size),
+    );
+
+    // Overhead light, echoing the reference's ceiling fixture.
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(w * 0.52, -h * 0.06), width: w * 0.55, height: h * 0.16),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.75)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+    );
+
+    final centre = Offset(w * 0.60, h * 0.46);
+    final scale = h * 0.0022;
+
+    // Concentric rings — the podium/pedestal, flattened into arcs.
+    for (var i = 3; i >= 1; i--) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(centre.dx, h * 0.86),
+          width: w * (0.20 + i * 0.10),
+          height: h * (0.05 + i * 0.02),
+        ),
+        Paint()
+          ..color = AppColors.primary.withValues(alpha: 0.05 * i)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    _drawHeart(canvas, centre, 78 * scale);
+    _drawEcg(canvas, centre, 78 * scale);
+  }
+
+  void _drawHeart(Canvas canvas, Offset c, double r) {
+    final path = Path()
+      ..moveTo(c.dx, c.dy + r * 0.75)
+      ..cubicTo(c.dx - r * 1.5, c.dy - r * 0.35, c.dx - r * 0.6, c.dy - r * 1.25, c.dx, c.dy - r * 0.5)
+      ..cubicTo(c.dx + r * 0.6, c.dy - r * 1.25, c.dx + r * 1.5, c.dy - r * 0.35, c.dx, c.dy + r * 0.75)
+      ..close();
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary.withValues(alpha: _motifOpacity * 0.5),
+            AppColors.primary.withValues(alpha: _motifOpacity * 0.15),
+          ],
+        ).createShader(path.getBounds()),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..color = AppColors.primary.withValues(alpha: _motifOpacity),
+    );
+  }
+
+  /// The ECG trace across the heart — the detail that makes the motif read
+  /// as medical rather than decorative.
+  void _drawEcg(Canvas canvas, Offset c, double r) {
+    final y = c.dy - r * 0.05;
+    final path = Path()
+      ..moveTo(c.dx - r * 1.15, y)
+      ..lineTo(c.dx - r * 0.55, y)
+      ..lineTo(c.dx - r * 0.36, y - r * 0.42)
+      ..lineTo(c.dx - r * 0.12, y + r * 0.50)
+      ..lineTo(c.dx + r * 0.10, y - r * 0.20)
+      ..lineTo(c.dx + r * 0.32, y)
+      ..lineTo(c.dx + r * 1.15, y);
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..color = AppColors.primaryDeep.withValues(alpha: _motifOpacity + 0.18),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HeaderIllustrationPainter oldDelegate) => false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Score hero + quick actions — the reference's top block.
+//
+// One dark card against the light canvas is what gives the screen a focal
+// point; the pastel medallions beside it carry the four destinations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The dark hero card.
+///
+/// The design reference labels this "Health Score 82/100". It shows
+/// **adherence** instead, because that is a number this app actually
+/// measures. A composite "health score" would have to be invented from
+/// nothing, and a fabricated clinical-sounding figure is exactly what the
+/// rest of this app is built to avoid — the OCR gate, the interaction
+/// database and the "checked: false" states all exist to stop the product
+/// stating things it can't support.
+class _ScoreHeroCard extends StatelessWidget {
+  const _ScoreHeroCard({required this.percent, this.onTap});
+
+  /// Weekly adherence, or negative when there's nothing logged yet.
+  final double percent;
+  final VoidCallback? onTap;
+
+  bool get _hasData => percent >= 0;
+
+  /// Deliberately plain language, and never congratulatory about a figure
+  /// that's actually poor.
+  String get _verdict {
+    if (!_hasData) return 'Log a dose to start';
+    if (percent >= 90) return 'Excellent';
+    if (percent >= 75) return 'Good';
+    if (percent >= 50) return 'Needs attention';
+    return 'Often missed';
+  }
+
+  Color get _verdictColour {
+    if (!_hasData) return _muted;
+    if (percent >= 75) return _greenLight;
+    if (percent >= 50) return AppColors.warning;
+    return AppColors.danger;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.heroDark,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.heroDark.withValues(alpha: 0.28),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Adherence',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 13,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+                const Spacer(),
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _greenLight.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.monitor_heart_rounded,
+                    color: _greenLight,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  _hasData ? '${percent.round()}' : '—',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                    letterSpacing: -1,
+                  ),
+                ),
+                if (_hasData)
+                  Text(
+                    '%',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _verdict,
+              style: TextStyle(
+                color: _verdictColour,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              _hasData ? 'Doses taken this week' : 'Nothing logged yet',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 11.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: _hasData ? (percent / 100).clamp(0.0, 1.0) : 0,
+                minHeight: 6,
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation(_verdictColour),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One pastel medallion in the 2×2 quick-action grid.
+class _ActionMedallion extends StatelessWidget {
+  const _ActionMedallion({
+    required this.icon,
+    required this.tint,
+    required this.iconColour,
+    required this.label,
+    required this.caption,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final Color iconColour;
+  final String label;
+  final String caption;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+              child: Icon(icon, color: iconColour, size: 22),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: _green),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The white card holding the four medallions.
+class _QuickActionGrid extends StatelessWidget {
+  const _QuickActionGrid({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _cardStroke),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [for (final c in children.take(2)) Expanded(child: c)]),
+          Row(children: [for (final c in children.skip(2)) Expanded(child: c)]),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Assistant mascot
+//
+// The friendly robot from the design reference, drawn rather than shipped as
+// an image — same reasoning as the header illustration: no asset to bundle,
+// crisp at any size, and on-palette. Swap the CustomPaint for an
+// Image.asset of the same size to use real artwork instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RobotMascot extends StatelessWidget {
+  const _RobotMascot({this.size = 52});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _RobotPainter()),
+      ),
+    );
+  }
+}
+
+class _RobotPainter extends CustomPainter {
+  static const Color _shell = Color(0xFFF7FAFB);
+  static const Color _shellEdge = Color(0xFFD8E3E8);
+  static const Color _visor = Color(0xFF16232B);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final shell = Paint()..color = _shell;
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.028
+      ..color = _shellEdge;
+
+    // Antenna.
+    canvas.drawLine(
+      Offset(w * 0.5, h * 0.14),
+      Offset(w * 0.5, h * 0.05),
+      Paint()
+        ..color = _shellEdge
+        ..strokeWidth = w * 0.035
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(Offset(w * 0.5, h * 0.05), w * 0.055, Paint()..color = _green);
+
+    // Body, drawn before the head so the head overlaps it.
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.24, h * 0.60, w * 0.52, h * 0.32),
+      Radius.circular(w * 0.16),
+    );
+    canvas.drawRRect(body, shell);
+    canvas.drawRRect(body, edge);
+
+    // Arms.
+    for (final dx in [w * 0.16, w * 0.84]) {
+      canvas.drawCircle(Offset(dx, h * 0.74), w * 0.075, shell);
+      canvas.drawCircle(Offset(dx, h * 0.74), w * 0.075, edge);
+    }
+
+    // Head.
+    final head = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.17, h * 0.15, w * 0.66, h * 0.48),
+      Radius.circular(w * 0.20),
+    );
+    canvas.drawRRect(head, shell);
+    canvas.drawRRect(head, edge);
+
+    // Visor — the dark face panel the eyes sit in.
+    final visor = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.245, h * 0.235, w * 0.51, h * 0.30),
+      Radius.circular(w * 0.135),
+    );
+    canvas.drawRRect(visor, Paint()..color = _visor);
+
+    // Eyes. Slightly wide-set and rounded — the whole character of the
+    // mascot lives here, so they're drawn last and kept bright.
+    final eye = Paint()..color = Colors.white;
+    final glow = Paint()
+      ..color = _greenLight.withValues(alpha: 0.55)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.06);
+    for (final dx in [w * 0.38, w * 0.62]) {
+      canvas.drawCircle(Offset(dx, h * 0.385), w * 0.075, glow);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(dx, h * 0.385),
+          width: w * 0.105,
+          height: w * 0.125,
+        ),
+        eye,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RobotPainter oldDelegate) => false;
 }

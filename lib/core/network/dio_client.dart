@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'api_endpoints.dart';
+import 'server_config.dart';
 
 /// Secure-storage singleton (kept for onboarding flag caching).
 final secureStorageProvider = Provider<FlutterSecureStorage>(
@@ -18,9 +18,14 @@ final secureStorageProvider = Provider<FlutterSecureStorage>(
 /// Supabase SDK handles token refresh automatically via its internal JWT logic;
 /// this interceptor just attaches the current session token.
 final dioClientProvider = Provider<Dio>((ref) {
+  // Watched, not read: changing the server address in settings rebuilds
+  // this client, so the next request goes to the new host without a
+  // restart.
+  final baseUrl = ref.watch(serverConfigProvider);
+
   final dio = Dio(
     BaseOptions(
-      baseUrl: ApiEndpoints.baseUrl,
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 20),
       contentType: 'application/json',

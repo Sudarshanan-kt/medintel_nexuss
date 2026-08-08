@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'domain/medicine.dart';
 import 'reminders_controller.dart';
+import '../../core/theme/app_colors.dart';
 
 /// Full-screen modal overlay displayed when a medicine alarm rings.
 ///
@@ -44,12 +45,12 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen>
   late AnimationController _pulseController;
   late Animation<double> _scaleAnimation;
 
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
-  static const _primary = Color(0xFF2563EB);
+  static const _ink = AppColors.textPrimary;
+  static const _muted = AppColors.textSecondary;
+  static const _primary = AppColors.info;
   static const _green = Color(0xFF16A34A);
-  static const _red = Color(0xFFDC2626);
-  static const _amber = Color(0xFFD97706);
+  static const _red = AppColors.dangerDeep;
+  static const _amber = AppColors.warningDeep;
 
   @override
   void initState() {
@@ -139,7 +140,7 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen>
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: const Color(0xFFCBD5E1),
+              color: AppColors.neutral300,
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -153,7 +154,7 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen>
                   width: 110,
                   height: 110,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
+                    color: AppColors.tintGreen,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -174,7 +175,7 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppColors.tintSky,
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
@@ -267,9 +268,9 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen>
                         ],
                         child: Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: AppColors.tintAmber,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFFDE68A)),
+                            border: Border.all(color: AppColors.tintAmber),
                           ),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
