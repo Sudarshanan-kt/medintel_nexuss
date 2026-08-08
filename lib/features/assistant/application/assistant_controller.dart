@@ -119,7 +119,7 @@ class AssistantController extends Notifier<AssistantState> {
       errorMessage: null,
     );
 
-    await _voice.listen(
+    final opened = await _voice.listen(
       language: state.language,
       onPartial: (t) {
         if (state.phase != VoicePhase.listening) return;
@@ -145,6 +145,20 @@ class AssistantController extends Notifier<AssistantState> {
         await _processTurn(clean);
       },
     );
+
+    // The microphone never opened. Say so and stand down — leaving the
+    // phase on `listening` is what made this look like the assistant was
+    // ignoring the user.
+    if (!opened) {
+      state = state.copyWith(
+        phase: VoicePhase.error,
+        liveTranscript: '',
+        amplitude: 0,
+        handsFree: false,
+        errorMessage: _voice.unavailableReason ??
+            'Could not start listening. You can type instead.',
+      );
+    }
   }
 
   /// Stop a listening turn early (button released). Submits the partial
@@ -176,23 +190,88 @@ class AssistantController extends Notifier<AssistantState> {
     );
 
     try {
-      final reply = await _service.reply(
+      final history = state.messages;
+      String reply;
+
+      // Stream from the on-device model when it's the one answering, so the
+      // reply starts appearing immediately rather than after the whole
+      // answer is generated. The wait is the same; the blank screen isn't.
+      final stream = _service.replyStream(
         prompt: userText,
-        history: state.messages,
+        history: history,
         language: lang,
       );
 
-      final assistantMsg = ChatMessage(
-        id: 'a_${DateTime.now().microsecondsSinceEpoch}',
-        role: MessageRole.assistant,
-        content: reply,
-        language: lang,
-      );
+      if (stream != null) {
+        final messageId = 'a_${DateTime.now().microsecondsSinceEpoch}';
+        final buffer = StringBuffer();
+        var placed = false;
 
-      state = state.copyWith(
-        messages: [...state.messages, assistantMsg],
-        phase: VoicePhase.speaking,
-      );
+        await for (final token in stream) {
+          buffer.write(token);
+          final partial = ChatMessage(
+            id: messageId,
+            role: MessageRole.assistant,
+            content: buffer.toString(),
+            language: lang,
+          );
+          state = state.copyWith(
+            // First token replaces the thinking state; later ones swap the
+            // message in place rather than appending a new bubble.
+            messages: placed
+                ? [...state.messages.sublist(0, state.messages.length - 1), partial]
+                : [...state.messages, partial],
+            phase: VoicePhase.speaking,
+          );
+          placed = true;
+        }
+        reply = buffer.toString().trim();
+
+        // The stream produced nothing — fall back to the whole-answer path
+        // rather than leaving an empty bubble.
+        if (reply.isEmpty) {
+          if (placed) {
+            state = state.copyWith(
+              messages: state.messages.sublist(0, state.messages.length - 1),
+            );
+          }
+          reply = await _service.reply(
+            prompt: userText,
+            history: history,
+            language: lang,
+          );
+          state = state.copyWith(
+            messages: [
+              ...state.messages,
+              ChatMessage(
+                id: messageId,
+                role: MessageRole.assistant,
+                content: reply,
+                language: lang,
+              ),
+            ],
+            phase: VoicePhase.speaking,
+          );
+        }
+      } else {
+        reply = await _service.reply(
+          prompt: userText,
+          history: history,
+          language: lang,
+        );
+        state = state.copyWith(
+          messages: [
+            ...state.messages,
+            ChatMessage(
+              id: 'a_${DateTime.now().microsecondsSinceEpoch}',
+              role: MessageRole.assistant,
+              content: reply,
+              language: lang,
+            ),
+          ],
+          phase: VoicePhase.speaking,
+        );
+      }
 
       await _voice.speak(reply, lang);
       if (state.phase == VoicePhase.speaking) {

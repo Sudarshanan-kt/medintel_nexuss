@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'core/constants/supabase_config.dart';
 import 'firebase_options.dart';
+import 'core/theme/app_colors.dart';
 
 /// Entry point for MedIntel Nexus.
 ///
@@ -51,6 +54,20 @@ Future<void> main() async {
         );
       } catch (e) {
         debugPrint('Firebase init failed (push notifications disabled): $e');
+      }
+
+      // The on-device AI model the assistant runs on. Like Firebase, this
+      // is an enhancement rather than a hard dependency: without it the
+      // assistant falls back to the backend, and then to its own curated
+      // replies, so a failure here must not stop the app from starting.
+      try {
+        // The core registers no inference engine by itself — MediaPipe is
+        // the one that runs the `.task` model format we ship.
+        await FlutterGemma.initialize(
+          inferenceEngines: const [MediaPipeEngine()],
+        );
+      } catch (e) {
+        debugPrint('On-device AI init failed (assistant will use backend): $e');
       }
 
       // DEMO STABILITY: never fetch fonts at runtime. Without bundled font
@@ -109,7 +126,7 @@ class _ConfigErrorApp extends StatelessWidget {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: Color(0xFF0F172A),
+        backgroundColor: AppColors.textPrimary,
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),

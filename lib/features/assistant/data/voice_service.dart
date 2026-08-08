@@ -25,10 +25,39 @@ class VoiceService {
   bool _ttsReady = false;
   AssistantLanguage? _lastLang;
 
+  /// The last thing the speech engine complained about, kept so a failure
+  /// can be explained to the user instead of the microphone just doing
+  /// nothing.
+  String? _lastSttError;
+
+  /// Why speech input isn't working, in words a patient can act on — or
+  /// null when it is working.
+  ///
+  /// Speech failing used to be invisible: [listen] returned early, the orb
+  /// stayed lit, and nothing ever happened. Anything that stops the mic
+  /// has to surface here.
+  String? get unavailableReason {
+    if (_sttReady) return null;
+    final error = _lastSttError ?? '';
+    if (error.contains('permission')) {
+      return 'Microphone access is off. Allow it in Settings → Apps → '
+          'MedIntel Nexus → Permissions, then try again.';
+    }
+    if (error.contains('language') || error.contains('not_available')) {
+      return 'Speech recognition isn\'t available for this language on this '
+          'phone. You can type instead.';
+    }
+    return 'Speech recognition isn\'t available on this phone right now. '
+        'You can type instead.';
+  }
+
   Future<bool> initialise() async {
     if (!_sttReady) {
       _sttReady = await _stt.initialize(
-        onError: (e) => debugPrint('STT error: ${e.errorMsg}'),
+        onError: (e) {
+          _lastSttError = e.errorMsg;
+          debugPrint('STT error: ${e.errorMsg}');
+        },
         onStatus: (s) => debugPrint('STT status: $s'),
       );
     }
@@ -51,14 +80,25 @@ class VoiceService {
     return _sttReady && _ttsReady;
   }
 
-  Future<void> listen({
+  /// Opens the microphone. Returns false when it couldn't be opened at all
+  /// — the caller must show [unavailableReason] rather than leaving the UI
+  /// waiting for speech that will never arrive.
+  Future<bool> listen({
     required AssistantLanguage language,
     required ValueChanged<String> onPartial,
     required ValueChanged<String> onFinal,
     ValueChanged<double>? onAmplitude,
   }) async {
     if (!_sttReady) await initialise();
-    if (!_sttReady) return;
+    if (!_sttReady) return false;
+
+    // Declared in the manifest, but a permission still has to be granted at
+    // runtime, and it can be revoked later from Settings.
+    if (!await _stt.hasPermission) {
+      _lastSttError = 'error_permission';
+      _sttReady = false;
+      return false;
+    }
 
     await _stt.listen(
       localeId: _sttLocaleId(language),
@@ -81,6 +121,7 @@ class VoiceService {
         }
       },
     );
+    return true;
   }
 
   Future<void> stopListening() async {

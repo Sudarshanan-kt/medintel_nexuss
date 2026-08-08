@@ -80,6 +80,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- GPU inference for the on-device AI model. Without these the
+             OpenCL loader can't dlopen the vendor driver, every GPU
+             accelerator fails to register, and LiteRT silently falls back
+             to CPU — which is several times slower per reply.
+             All optional: a device with no OpenCL still installs and runs
+             on CPU. -->
+        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

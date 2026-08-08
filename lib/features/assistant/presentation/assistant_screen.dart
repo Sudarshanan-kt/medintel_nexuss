@@ -27,7 +27,12 @@ class AssistantScreen extends ConsumerStatefulWidget {
 class _AssistantScreenState extends ConsumerState<AssistantScreen>
     with TickerProviderStateMixin {
   late final AnimationController _ambient;
-  bool? _hasKey;
+  /// Whether any model can answer. Null until the first probe returns, so
+  /// the banner doesn't flash before it's known.
+  bool? _modelAvailable;
+
+  /// True when replies are generated on the phone rather than the backend.
+  bool _onDevice = false;
 
   @override
   void initState() {
@@ -36,13 +41,18 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
       vsync: this,
       duration: const Duration(seconds: 20),
     )..repeat();
-    _checkKey();
+    _checkModel();
   }
 
-  Future<void> _checkKey() async {
-    final svc = ref.read(assistantServiceProvider);
-    final has = await svc.hasApiKey();
-    if (mounted) setState(() => _hasKey = has);
+  Future<void> _checkModel() async {
+    final service = ref.read(assistantServiceProvider);
+    final available = await service.isModelAvailable();
+    final onDevice = await service.isRunningOnDevice();
+    if (!mounted) return;
+    setState(() {
+      _modelAvailable = available;
+      _onDevice = onDevice;
+    });
   }
 
   @override
@@ -51,10 +61,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
     super.dispose();
   }
 
-  Future<void> _openApiKeySheet() async {
+  Future<void> _openModelSheet() async {
     await showAppSheet<void>(
       context: context,
-      builder: (_) => _ApiKeySheet(onSaved: _checkKey),
+      builder: (_) => _LocalModelSheet(onRetry: _checkModel, onDevice: _onDevice),
     );
   }
 
@@ -84,14 +94,15 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
                 _TopBar(
                   language: state.language,
                   onLanguageChanged: controller.setLanguage,
-                  onSettings: _openApiKeySheet,
+                  onSettings: _openModelSheet,
                   handsFree: state.handsFree,
                   onToggleHandsFree: () {
                     HapticFeedback.selectionClick();
                     controller.toggleHandsFree();
                   },
                 ),
-                if (_hasKey == false) _KeyPromptBanner(onTap: _openApiKeySheet),
+                if (_modelAvailable == false)
+                  _OfflineModelBanner(onTap: _openModelSheet),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -106,10 +117,22 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
                     ],
                   ),
                 ),
+                // Typing has to be available regardless of the microphone.
+                // Speech can fail for reasons the patient can't fix in the
+                // moment — permission revoked, no recogniser for their
+                // language, a noisy pharmacy — and without this the
+                // assistant is simply unreachable when it does.
+                _TextComposer(
+                  enabled: state.phase != VoicePhase.thinking,
+                  onSubmit: (text) async {
+                    HapticFeedback.selectionClick();
+                    await controller.sendText(text);
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.gutter,
-                    AppSpacing.lg,
+                    AppSpacing.md,
                     AppSpacing.gutter,
                     AppSpacing.xl,
                   ),
@@ -916,11 +939,13 @@ class _TalkButtonState extends State<_TalkButton> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// API key prompt banner + paste sheet
+// Local-model status banner + help sheet
 // ─────────────────────────────────────────────────────────────────────────
 
-class _KeyPromptBanner extends StatelessWidget {
-  const _KeyPromptBanner({required this.onTap});
+/// Shown when the backend's local model isn't answering, so the demo
+/// responses are explained rather than mistaken for the real assistant.
+class _OfflineModelBanner extends StatelessWidget {
+  const _OfflineModelBanner({required this.onTap});
   final VoidCallback onTap;
 
   @override
@@ -966,7 +991,7 @@ class _KeyPromptBanner extends StatelessWidget {
                               .copyWith(color: Colors.white, fontSize: 13),
                         ),
                         Text(
-                          'Add a Groq key to unlock real AI · free, takes 30s',
+                          'The local AI model isn\'t running · tap for setup',
                           style: AppTypography.caption.copyWith(
                             color: Colors.white.withValues(alpha: 0.7),
                           ),
@@ -988,178 +1013,381 @@ class _KeyPromptBanner extends StatelessWidget {
   }
 }
 
-class _ApiKeySheet extends ConsumerStatefulWidget {
-  const _ApiKeySheet({required this.onSaved});
-  final VoidCallback onSaved;
+class _LocalModelSheet extends ConsumerStatefulWidget {
+  const _LocalModelSheet({required this.onRetry, this.onDevice = false});
+  final VoidCallback onRetry;
+
+  /// True when the phone's own model is answering, rather than the backend.
+  final bool onDevice;
 
   @override
-  ConsumerState<_ApiKeySheet> createState() => _ApiKeySheetState();
+  ConsumerState<_LocalModelSheet> createState() => _LocalModelSheetState();
 }
 
-class _ApiKeySheetState extends ConsumerState<_ApiKeySheet> {
-  final _controller = TextEditingController();
+/// Explains how to bring the local model up, and re-probes on demand.
+///
+/// There is nothing for the patient to configure here — inference runs on
+/// the backend machine, so this is a status readout and a setup reminder
+/// for whoever is running it, not a settings form.
+class _LocalModelSheetState extends ConsumerState<_LocalModelSheet> {
   bool _busy = false;
+  bool? _available;
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _probe();
   }
 
-  Future<void> _save() async {
+  Future<void> _probe() async {
     setState(() => _busy = true);
-    await ref.read(assistantServiceProvider).setApiKey(_controller.text.trim());
+    final available =
+        await ref.read(assistantServiceProvider).isModelAvailable();
     if (!mounted) return;
-    widget.onSaved();
-    Navigator.of(context).pop();
-  }
-
-  Future<void> _clear() async {
-    await ref.read(assistantServiceProvider).setApiKey(null);
-    if (!mounted) return;
-    widget.onSaved();
-    Navigator.of(context).pop();
+    setState(() {
+      _busy = false;
+      _available = available;
+    });
+    widget.onRetry();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
+    final available = _available == true;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0B1325),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0B1325),
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.md,
+        AppSpacing.gutter,
+        AppSpacing.xl,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                Icon(
+                  available
+                      ? (widget.onDevice
+                          ? Icons.smartphone_rounded
+                          : Icons.check_circle_rounded)
+                      : Icons.cloud_off_rounded,
+                  color: available ? AppColors.success : AppColors.warning,
+                  size: 22,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    available
+                        ? (widget.onDevice
+                            ? 'Running on this phone'
+                            : 'Running on your computer')
+                        : 'No AI model available',
+                    style: AppTypography.titleMd
+                        .copyWith(color: Colors.white, fontSize: 20),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              available
+                  ? (widget.onDevice
+                      ? 'Replies are generated on this device. It works with '
+                          'no server, no Wi-Fi, and nothing you say leaves '
+                          'the phone.'
+                      : 'Replies come from the model on the machine running '
+                          'the backend. Install the on-device model to make '
+                          'the assistant work without it.')
+                  : 'The assistant is falling back to demo responses. Either '
+                      'install the on-device model, or start the backend:',
+              style: AppTypography.bodyMd.copyWith(
+                color: Colors.white.withValues(alpha: 0.65),
+                height: 1.5,
+              ),
+            ),
+            if (!widget.onDevice) ...[
+              const SizedBox(height: AppSpacing.lg),
+              const _SetupStep(
+                step: 'A',
+                command: 'adb push qwen2.5-1.5b-it-q8.task '
+                    '/sdcard/Android/data/com.medintelnexus.medintel_nexus/'
+                    'files/',
+                detail: 'Puts the AI model on the phone — about 1.6 GB, once. '
+                    'After this the assistant needs no server at all.',
+              ),
+            ],
+            if (!available) ...[
+              const SizedBox(height: AppSpacing.lg),
+              const _SetupStep(
+                step: '1',
+                command: 'ollama serve',
+                detail: 'Starts the local model server.',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const _SetupStep(
+                step: '2',
+                command: 'ollama pull qwen2.5:7b-instruct',
+                detail: 'One-time download, about 4.7 GB.',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const _SetupStep(
+                step: '3',
+                command: 'adb reverse tcp:8000 tcp:8000',
+                detail: 'Only on a USB-connected phone, so it can reach the '
+                    'backend.',
+              ),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: _busy ? null : _probe,
+                child: Container(
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        AppColors.accentCyan,
+                        AppColors.primary,
+                        AppColors.accentViolet,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          available ? 'Check again' : 'I\'ve started it',
+                          style: AppTypography.labelMd.copyWith(
+                            color: Colors.white,
+                            fontSize: 15,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.gutter,
-          AppSpacing.md,
-          AppSpacing.gutter,
-          AppSpacing.xl,
+      ),
+    );
+  }
+}
+
+/// One numbered shell command in the setup list.
+class _SetupStep extends StatelessWidget {
+  const _SetupStep({
+    required this.step,
+    required this.command,
+    required this.detail,
+  });
+
+  final String step;
+  final String command;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            step,
+            style: AppTypography.caption.copyWith(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
-        child: SafeArea(
-          top: false,
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.24),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Connect real AI',
-                style: AppTypography.titleMd.copyWith(
-                  color: Colors.white,
-                  fontSize: 20,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Paste a Groq API key to get real conversational responses '
-                'in English & Tamil. Free at console.groq.com/keys — takes '
-                '30 seconds with a Google sign-in.',
-                style: AppTypography.bodyMd.copyWith(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _controller,
-                obscureText: true,
-                style: AppTypography.bodyLg.copyWith(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'gsk_…',
-                  hintStyle: AppTypography.bodyMd.copyWith(
-                    color: Colors.white.withValues(alpha: 0.35),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.06),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: const BorderSide(color: AppColors.accentCyan),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.md,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
+              Container(
                 width: double.infinity,
-                child: GestureDetector(
-                  onTap: _busy ? null : _save,
-                  child: Container(
-                    height: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          AppColors.accentCyan,
-                          AppColors.primary,
-                          AppColors.accentViolet,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: _busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            'Save and use real AI',
-                            style: AppTypography.labelMd.copyWith(
-                              color: Colors.white,
-                              fontSize: 15,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: SelectableText(
+                  command,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.accentCyan,
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Center(
-                child: TextButton(
-                  onPressed: _clear,
-                  child: Text(
-                    'Clear and use demo responses',
-                    style: AppTypography.labelMd.copyWith(
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: AppTypography.caption.copyWith(
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Keyboard entry for the assistant.
+///
+/// Sits under the transcript and above the talk button, so voice stays the
+/// primary interaction and this is the always-available way through when
+/// the microphone won't cooperate.
+class _TextComposer extends StatefulWidget {
+  const _TextComposer({required this.onSubmit, this.enabled = true});
+
+  final Future<void> Function(String text) onSubmit;
+  final bool enabled;
+
+  @override
+  State<_TextComposer> createState() => _TextComposerState();
+}
+
+class _TextComposerState extends State<_TextComposer> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || !widget.enabled) return;
+    _controller.clear();
+    // Keep focus so a follow-up question doesn't need another tap.
+    _focus.requestFocus();
+    await widget.onSubmit(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        0,
+        AppSpacing.gutter,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focus,
+              enabled: widget.enabled,
+              style: AppTypography.bodyMd.copyWith(color: Colors.white),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _submit(),
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Type a question…',
+                hintStyle: AppTypography.bodyMd.copyWith(
+                  color: Colors.white.withValues(alpha: 0.35),
+                ),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.06),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  borderSide: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  borderSide: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  borderSide: const BorderSide(color: AppColors.accentCyan),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          GestureDetector(
+            onTap: widget.enabled ? _submit : null,
+            child: Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: widget.enabled
+                    ? const LinearGradient(
+                        colors: [AppColors.accentCyan, AppColors.primary],
+                      )
+                    : null,
+                color: widget.enabled
+                    ? null
+                    : Colors.white.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_upward_rounded,
+                color: Colors.white.withValues(alpha: widget.enabled ? 1 : 0.4),
+                size: 20,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

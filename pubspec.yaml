@@ -89,6 +89,20 @@ dependencies:
   printing: ^5.14.3
   fl_chart: ^1.2.0
   google_mlkit_text_recognition: ^0.15.0
+  # On-device barcode/QR reading for the medicine scanner. Pairs with the
+  # text recogniser above: the barcode gives an exact identity when the pack
+  # carries one, OCR reads the printed name when it doesn't. Both run
+  # locally — no lookup service, no network.
+  google_mlkit_barcode_scanning: ^0.14.2
+  # On-device LLM (MediaPipe LiteRT). Runs the assistant on the phone
+  # itself, so it answers with no backend, no network and no Wi-Fi
+  # dependency. Needs a model file on the device — see
+  # lib/features/assistant/data/on_device_llm.dart for how it's located.
+  flutter_gemma: ^1.5.2
+  # The inference engine itself. flutter_gemma's core registers none on its
+  # own — this is the one that runs `.task` models, which is the format the
+  # Qwen build we ship uses.
+  flutter_gemma_mediapipe: ^1.0.4
 
 dev_dependencies:
   flutter_test:

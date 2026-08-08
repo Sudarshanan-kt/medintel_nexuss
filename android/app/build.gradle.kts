@@ -63,6 +63,12 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // Without these, R8 fails the release build on ML Kit's
+            // unbundled script recognizers — see proguard-rules.pro.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
