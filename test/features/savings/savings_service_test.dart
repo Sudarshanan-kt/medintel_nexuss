@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medintel_nexus/features/savings/data/savings_service.dart';
 import 'package:medintel_nexus/features/scan/domain/medicine.dart';
@@ -8,9 +7,17 @@ import 'package:medintel_nexus/shared/widgets/risk_badge.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  // No API key is ever configured in this test environment, so every call
-  // resolves through the local fallback table — deterministic, no network.
-  final service = SavingsService(dio: Dio(), storage: const FlutterSecureStorage());
+  // Points at a port nothing is listening on, so every call fails to reach
+  // the backend and resolves through the local fallback table —
+  // deterministic, and it exercises the offline path these tests are about.
+  final service = SavingsService(
+    dio: Dio(
+      BaseOptions(
+        baseUrl: 'http://127.0.0.1:9',
+        connectTimeout: const Duration(milliseconds: 200),
+      ),
+    ),
+  );
 
   Medicine medicine(String name) => Medicine(
         id: name,

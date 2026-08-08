@@ -1,51 +1,112 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
 import '../domain/chat_message.dart';
+import 'on_device_llm.dart';
 
-/// Talks to the underlying LLM.
+/// Talks to the assistant, via the backend.
 ///
-/// Resolution order for the API key:
-///   1. Runtime override saved to secure storage via the in-app settings.
-///   2. `--dart-define=GROQ_API_KEY=...` build flag.
-///   3. None — fall back to the curated demo response set.
+/// Inference runs on a model hosted on the backend machine (Ollama by
+/// default), not a cloud provider — so no API key ships inside the app, and
+/// a patient's health conversation never leaves the deployment. The system
+/// prompts live server-side with it, in `app/routers/assistant.py`.
 ///
-/// Provider: Groq (Llama 3.3 70B). Free tier, sub-second responses, native
-/// Tamil & Hindi quality. Get a key at console.groq.com/keys.
+/// Every method degrades to the curated fallback copy below when the model
+/// isn't reachable. That copy is deliberately kept here rather than on the
+/// server: it's UI text in three languages, not model output, and the app
+/// has to stay usable with the backend switched off entirely.
 class AssistantService {
-  AssistantService({required this.dio, required this.storage});
+  AssistantService({required this.dio, required this.onDevice});
 
   final Dio dio;
-  final FlutterSecureStorage storage;
+  final OnDeviceLlm onDevice;
 
-  static const String _kGroqApiKey = 'mn_groq_api_key';
-  static const String _envKey =
-      String.fromEnvironment('GROQ_API_KEY', defaultValue: '');
-  static const String _endpoint =
-      'https://api.groq.com/openai/v1/chat/completions';
-  static const String _model = 'llama-3.3-70b-versatile';
-
-  Future<String?> getApiKey() async {
-    final stored = await storage.read(key: _kGroqApiKey);
-    if (stored != null && stored.isNotEmpty) return stored;
-    if (_envKey.isNotEmpty) return _envKey;
-    return null;
-  }
-
-  Future<void> setApiKey(String? key) async {
-    if (key == null || key.trim().isEmpty) {
-      await storage.delete(key: _kGroqApiKey);
-    } else {
-      await storage.write(key: _kGroqApiKey, value: key.trim());
+  /// Whether a model is available to answer, on the phone or on the backend.
+  ///
+  /// On-device is checked first because it's the path that works without a
+  /// server, a network or the right Wi-Fi.
+  Future<bool> isModelAvailable() async {
+    if (await OnDeviceLlm.isInstalled() && await onDevice.ensureLoaded()) {
+      return true;
+    }
+    try {
+      final res = await dio.get<Map<String, dynamic>>(
+        ApiEndpoints.llmHealth,
+        options: Options(receiveTimeout: const Duration(seconds: 8)),
+      );
+      return res.data?['status'] == 'ok';
+    } catch (e) {
+      debugPrint('Backend model health check failed: $e');
+      return false;
     }
   }
 
-  Future<bool> hasApiKey() async => (await getApiKey()) != null;
+  /// True when replies are being generated on the phone rather than served
+  /// by the backend. Surfaced so the UI can say which is answering.
+  Future<bool> isRunningOnDevice() async =>
+      await OnDeviceLlm.isInstalled() && onDevice.isReady;
+
+  /// The system prompt used for on-device generation.
+  ///
+  /// The backend keeps its own copy for the server path. They're deliberately
+  /// close but not shared: this one is terser because a 1.5B model follows
+  /// short, concrete instructions far better than long ones.
+  String _systemPrompt(AssistantLanguage language) {
+    const base = '''
+You are MedIntel Nexus's clinical assistant. You are warm, calm and brief —
+2 to 4 sentences unless asked for more.
+
+You help with medicines, prescriptions, lab reports, dosage schedules,
+adherence and side effects. Never invent a lab value, dosage or prescription
+you weren't told about; if you don't have the data, say so.
+
+You are not a doctor. Point anything involving diagnosis or a dosing change
+to the patient's clinician. If chest pain, severe bleeding, trouble
+breathing, stroke signs or suicidal thoughts are mentioned, tell them to
+call emergency services now.''';
+
+    return switch (language) {
+      AssistantLanguage.english => '$base\nReply in English.',
+      AssistantLanguage.tamil =>
+        '$base\nReply in everyday spoken Tamil (தமிழ்).',
+      AssistantLanguage.hindi =>
+        '$base\nReply in everyday spoken Hindi (हिन्दी).',
+    };
+  }
+
+  /// Unwraps the standard `{data, error}` success envelope.
+  Map<String, dynamic> _data(Response<Map<String, dynamic>> res) {
+    final data = res.data?['data'];
+    return data is Map ? data.cast<String, dynamic>() : <String, dynamic>{};
+  }
+
+  List<({bool isUser, String text})> _historyFor(List<ChatMessage> history) => [
+        for (final m in history.take(10)) (isUser: m.isUser, text: m.content),
+      ];
+
+  /// Streams a reply from the on-device model, token by token.
+  ///
+  /// Returns null when there's no on-device model to stream from, so the
+  /// caller can fall back to the whole-answer path rather than showing an
+  /// empty bubble. Streaming exists purely for how it feels: the total
+  /// generation time is the same, but the first words land in well under a
+  /// second instead of after the entire answer is ready.
+  Stream<String>? replyStream({
+    required String prompt,
+    required List<ChatMessage> history,
+    required AssistantLanguage language,
+  }) {
+    if (!onDevice.isReady) return null;
+    return onDevice.generateStream(
+      systemPrompt: _systemPrompt(language),
+      language: language,
+      history: _historyFor(history),
+      prompt: prompt,
+    );
+  }
 
   /// Generate an assistant reply for [prompt]. Honours conversation history
   /// and the active language.
@@ -54,52 +115,53 @@ class AssistantService {
     required List<ChatMessage> history,
     required AssistantLanguage language,
   }) async {
-    final apiKey = await getApiKey();
-    if (apiKey == null) return _fallback(prompt, language);
+    // 1 · The phone's own model, when it's installed. No server, no
+    // network, and nothing about the patient's health leaves the handset.
+    if (await OnDeviceLlm.isInstalled()) {
+      final local = await onDevice.generate(
+        systemPrompt: _systemPrompt(language),
+        language: language,
+        history: _historyFor(history),
+        prompt: prompt,
+      );
+      if (local != null) return local;
+      // Fall through — a model that's installed but failed to load or
+      // answer shouldn't take the assistant down with it.
+    }
 
+    // 2 · The backend, which runs a larger model when it's reachable.
     try {
-      final messages = <Map<String, String>>[
-        {'role': 'system', 'content': _systemPrompt(language)},
-        for (final m in history.take(10))
-          {
-            'role': m.isUser ? 'user' : 'assistant',
-            'content': m.content,
-          },
-        {'role': 'user', 'content': prompt},
-      ];
-
-      final res = await dio.post<String>(
-        _endpoint,
+      final res = await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.assistantMessages,
         options: Options(
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          responseType: ResponseType.plain,
-          receiveTimeout: const Duration(seconds: 25),
+          // A local model is slower than a hosted one — a 7B on CPU can take
+          // the better part of a minute for a long reply.
+          receiveTimeout: const Duration(seconds: 90),
           sendTimeout: const Duration(seconds: 15),
         ),
-        data: jsonEncode({
-          'model': _model,
-          'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 350,
-        }),
+        data: {
+          'prompt': prompt,
+          'language': language.code,
+          'history': [
+            for (final m in history.take(10))
+              {'role': m.isUser ? 'user' : 'assistant', 'content': m.content},
+          ],
+        },
       );
 
-      final json = jsonDecode(res.data ?? '{}') as Map<String, dynamic>;
-      final choices = (json['choices'] as List?) ?? const [];
-      if (choices.isEmpty) return _fallback(prompt, language);
-      final msg = (choices.first as Map)['message'] as Map?;
-      final content = msg?['content'] as String?;
-      return content?.trim().isNotEmpty == true
-          ? content!.trim()
-          : _fallback(prompt, language);
+      final data = _data(res);
+      // `generated: false` means the model couldn't be reached — an empty
+      // bubble would look like the assistant ignoring the patient.
+      if (data['generated'] != true) return _fallback(prompt, language);
+      final content = (data['content'] as String?)?.trim();
+      return (content == null || content.isEmpty)
+          ? _fallback(prompt, language)
+          : content;
     } on DioException catch (e) {
-      debugPrint('Groq request failed: ${e.message}');
+      debugPrint('Assistant request failed: ${e.message}');
       return _fallback(prompt, language);
     } catch (e) {
-      debugPrint('Groq parse failed: $e');
+      debugPrint('Assistant parse failed: $e');
       return _fallback(prompt, language);
     }
   }
@@ -116,40 +178,22 @@ class AssistantService {
   /// returned unchanged — the deterministic text is always a complete,
   /// correct answer on its own; this only ever makes it read better.
   Future<String> narrate(String statement, AssistantLanguage language) async {
-    final apiKey = await getApiKey();
-    if (apiKey == null) return statement;
-
     try {
-      final res = await dio.post<String>(
-        _endpoint,
+      final res = await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.assistantNarrate,
         options: Options(
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          responseType: ResponseType.plain,
-          receiveTimeout: const Duration(seconds: 12),
+          receiveTimeout: const Duration(seconds: 45),
           sendTimeout: const Duration(seconds: 8),
         ),
-        data: jsonEncode({
-          'model': _model,
-          'messages': [
-            {'role': 'system', 'content': _narratorSystemPrompt(language)},
-            {'role': 'user', 'content': statement},
-          ],
-          'temperature': 0.3,
-          'max_tokens': 120,
-        }),
+        data: {'statement': statement, 'language': language.code},
       );
 
-      final json = jsonDecode(res.data ?? '{}') as Map<String, dynamic>;
-      final choices = (json['choices'] as List?) ?? const [];
-      if (choices.isEmpty) return statement;
-      final msg = (choices.first as Map)['message'] as Map?;
-      final content = (msg?['content'] as String?)?.trim();
-      return content?.isNotEmpty == true ? content! : statement;
+      final data = _data(res);
+      if (data['rephrased'] != true) return statement;
+      final text = (data['text'] as String?)?.trim();
+      return (text == null || text.isEmpty) ? statement : text;
     } catch (e) {
-      debugPrint('Groq narrate failed: $e');
+      debugPrint('Assistant narrate failed: $e');
       return statement;
     }
   }
@@ -169,135 +213,22 @@ class AssistantService {
     required String transcript,
     required AssistantLanguage language,
   }) async {
-    final apiKey = await getApiKey();
-    if (apiKey == null) return null;
-
     try {
-      final res = await dio.post<String>(
-        _endpoint,
+      final res = await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.assistantTriage,
         options: Options(
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          responseType: ResponseType.plain,
-          receiveTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 60),
           sendTimeout: const Duration(seconds: 10),
         ),
-        data: jsonEncode({
-          'model': _model,
-          'messages': [
-            {'role': 'system', 'content': _triageSystemPrompt(language)},
-            {
-              'role': 'user',
-              'content': transcript.isEmpty
-                  ? 'Begin the triage. Ask your first question.'
-                  : transcript,
-            },
-          ],
-          'temperature': 0.2,
-          'max_tokens': 300,
-          'response_format': {'type': 'json_object'},
-        }),
+        data: {'transcript': transcript, 'language': language.code},
       );
 
-      final json = jsonDecode(res.data ?? '{}') as Map<String, dynamic>;
-      final choices = (json['choices'] as List?) ?? const [];
-      if (choices.isEmpty) return null;
-      final msg = (choices.first as Map)['message'] as Map?;
-      final content = (msg?['content'] as String?)?.trim();
-      if (content == null || content.isEmpty) return null;
-      final decoded = jsonDecode(content);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      final step = _data(res)['step'];
+      return step is Map ? step.cast<String, dynamic>() : null;
     } catch (e) {
-      debugPrint('Groq triageStep failed: $e');
+      debugPrint('Assistant triageStep failed: $e');
       return null;
     }
-  }
-
-  String _triageSystemPrompt(AssistantLanguage lang) {
-    const base = '''
-You run a short, adaptive symptom-triage questionnaire for a patient. You
-are NOT a doctor and must NEVER name a specific diagnosis or condition —
-only assess urgency and point to the right next step. Reply with ONLY one
-strict JSON object, nothing else — no markdown, no backticks, no text
-outside the JSON.
-
-Shape 1 — to ask a follow-up question (use short, plain language):
-{"type":"question","question":"<one short question>","options":["<opt1>","<opt2>","<opt3>"]}
-"options" must have between 2 and 5 short, tappable choices — never leave
-it empty, never expect free-text input.
-
-Shape 2 — to conclude the triage (do this within 5 questions total, sooner
-if you already have enough information):
-{"type":"result","urgency":"self_care","summary":"<1-2 sentences, no diagnosis, just what to do next>"}
-"urgency" must be exactly one of: "self_care", "see_doctor", "urgent", "emergency".
-
-Rules:
-- If at any point the description includes chest pain, severe or
-  uncontrolled bleeding, difficulty breathing, stroke symptoms (face
-  drooping, slurred speech, one-sided weakness), suicidal thoughts, or
-  a severe allergic reaction, immediately return a result with urgency
-  "emergency" — do not ask further questions.
-- Never state or imply what condition the patient has. Only urgency and
-  next-step guidance.
-- Ask exactly one question per turn.
-''';
-    return switch (lang) {
-      AssistantLanguage.english =>
-        '$base\nWrite all question/option/summary text in natural English.',
-      AssistantLanguage.tamil =>
-        '$base\nWrite all question/option/summary text in spoken, everyday Tamil (தமிழ்). Keep the JSON keys and urgency values in English exactly as specified.',
-      AssistantLanguage.hindi =>
-        '$base\nWrite all question/option/summary text in spoken, everyday Hindi (हिन्दी). Keep the JSON keys and urgency values in English exactly as specified.',
-    };
-  }
-
-  String _narratorSystemPrompt(AssistantLanguage lang) {
-    const base = '''
-You rephrase a single already-verified factual health statement into 1-2
-warm, natural, conversational sentences for a patient to read. You do NOT
-add any new fact, number, medicine name, or claim that isn't already in the
-input. You do NOT diagnose or give new advice beyond what's stated. Every
-number, medicine name, and measurement in the input must appear unchanged
-in your output. If you cannot rephrase it faithfully, repeat it verbatim.
-Reply with only the rephrased sentence — no preamble, no quotes.
-''';
-    return switch (lang) {
-      AssistantLanguage.english => '$base\nRespond in natural English.',
-      AssistantLanguage.tamil =>
-        '$base\nRespond in spoken, everyday Tamil (தமிழ்).',
-      AssistantLanguage.hindi =>
-        '$base\nRespond in spoken, everyday Hindi (हिन्दी).',
-    };
-  }
-
-  String _systemPrompt(AssistantLanguage lang) {
-    const base = '''
-You are MedIntel Nexus's clinical assistant — calm, warm, conversational and
-human. You talk to the patient like a thoughtful friend who happens to know
-medicine. Avoid robotic language. Vary your sentence structure. You may use
-contractions. Address the patient by first name (Aravind) occasionally.
-
-You help with: medicines, prescriptions, lab reports, risk flags, dosage
-schedules, adherence, side effects, drug interactions, and general health
-questions. Keep replies short by default (2-4 sentences) but go deeper if
-the user asks. Never invent specific lab values, dosages, or prescriptions
-you weren't told about; if you don't have the data, say so honestly.
-
-You are not a doctor. For diagnosis, dosing changes, severe symptoms, or
-emergencies, point the user to their clinician. If the user describes chest
-pain, suicidal thoughts, severe bleeding, stroke symptoms, anaphylaxis or
-similar emergencies, urge them to call emergency services immediately.
-''';
-    return switch (lang) {
-      AssistantLanguage.english =>
-        '$base\nRespond in natural, conversational English.',
-      AssistantLanguage.tamil =>
-        '$base\nRespond in spoken Tamil (தமிழ்) — the warm, everyday register people actually use, not literary Tamil. Mix in occasional English words only where natural (medicine names, units).',
-      AssistantLanguage.hindi =>
-        '$base\nRespond in spoken Hindi (हिन्दी) — the warm, everyday register, not formal Hindi.',
-    };
   }
 
   String _fallback(String prompt, AssistantLanguage lang) {
@@ -373,7 +304,7 @@ similar emergencies, urge them to call emergency services immediately.
 
 final assistantServiceProvider = Provider<AssistantService>((ref) {
   return AssistantService(
-    dio: Dio(),
-    storage: ref.watch(secureStorageProvider),
+    dio: ref.watch(dioClientProvider),
+    onDevice: ref.watch(onDeviceLlmProvider),
   );
 });

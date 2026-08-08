@@ -1,151 +1,85 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
 import '../../scan/domain/medicine.dart';
 import '../domain/generic_swap.dart';
 
 /// Estimates generic-equivalent savings for scanned medicines.
 ///
-/// Same resolution order and provider as [AssistantService] (Groq, Llama
-/// 3.3 70B) — deliberately reuses its stored API key so the user never has
-/// to configure this twice. Falls back to a small curated local lookup of
-/// well-known brand → generic pairs when no key is set or the call fails,
-/// same "never fabricate, never crash" posture as the rest of the app.
+/// Served by the backend against its local model, same as [AssistantService]
+/// — nothing here holds a provider key. Falls back to a small curated local
+/// lookup of well-known brand → generic pairs when the backend or the model
+/// can't be reached, the same "never fabricate, never crash" posture as the
+/// rest of the app.
 class SavingsService {
-  SavingsService({required this.dio, required this.storage});
+  SavingsService({required this.dio});
 
   final Dio dio;
-  final FlutterSecureStorage storage;
-
-  static const String _kGroqApiKey = 'mn_groq_api_key';
-  static const String _envKey =
-      String.fromEnvironment('GROQ_API_KEY', defaultValue: '');
-  static const String _endpoint =
-      'https://api.groq.com/openai/v1/chat/completions';
-  static const String _model = 'llama-3.3-70b-versatile';
-
-  Future<String?> _apiKey() async {
-    final stored = await storage.read(key: _kGroqApiKey);
-    if (stored != null && stored.isNotEmpty) return stored;
-    if (_envKey.isNotEmpty) return _envKey;
-    return null;
-  }
 
   /// Looks up generic-swap suggestions for [medicines]. Returns one
   /// [GenericSwap] per input medicine (never throws).
   Future<List<GenericSwap>> findGenericSwaps(List<Medicine> medicines) async {
     if (medicines.isEmpty) return const [];
 
-    String? apiKey;
     try {
-      apiKey = await _apiKey();
-    } catch (e) {
-      debugPrint('Savings: reading stored API key failed: $e');
-    }
-    if (apiKey == null) return _localFallback(medicines);
-
-    try {
-      final list = medicines
-          .map((m) => '- id="${m.id}" name="${m.name}" strength="${m.strength}"')
-          .join('\n');
-
-      final res = await dio.post<String>(
-        _endpoint,
+      final res = await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.savingsGenerics,
         options: Options(
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          responseType: ResponseType.plain,
-          receiveTimeout: const Duration(seconds: 25),
+          receiveTimeout: const Duration(seconds: 90),
           sendTimeout: const Duration(seconds: 15),
         ),
-        data: jsonEncode({
-          'model': _model,
-          'messages': [
-            {'role': 'system', 'content': _systemPrompt},
-            {'role': 'user', 'content': 'Medicines:\n$list'},
+        data: {
+          'medicines': [
+            for (final m in medicines)
+              {'id': m.id, 'name': m.name, 'strength': m.strength},
           ],
-          'temperature': 0.2,
-          'max_tokens': 800,
-          'response_format': {'type': 'json_object'},
-        }),
+        },
       );
 
-      final json = jsonDecode(res.data ?? '{}') as Map<String, dynamic>;
-      final choices = (json['choices'] as List?) ?? const [];
-      if (choices.isEmpty) return _localFallback(medicines);
-      final content =
-          ((choices.first as Map)['message'] as Map?)?['content'] as String?;
-      if (content == null || content.trim().isEmpty) {
-        return _localFallback(medicines);
-      }
+      final data = res.data?['data'];
+      if (data is! Map) return _localFallback(medicines);
+      // `checked: false` means the lookup never ran — the curated table
+      // below is a better answer than an empty list.
+      if (data['checked'] != true) return _localFallback(medicines);
 
-      final parsed = _parseResponse(content, medicines);
+      final parsed = _parseSwaps(data['swaps'], medicines);
       return parsed.isEmpty ? _localFallback(medicines) : parsed;
     } on DioException catch (e) {
-      debugPrint('Groq savings request failed: ${e.message}');
+      debugPrint('Savings request failed: ${e.message}');
       return _localFallback(medicines);
     } catch (e) {
-      debugPrint('Groq savings parse failed: $e');
+      debugPrint('Savings parse failed: $e');
       return _localFallback(medicines);
     }
   }
 
-  static const String _systemPrompt = '''
-You are a pharmacology reference assistant. For each medicine given (by brand
-or generic name), identify its generic (INN) name and a realistic typical
-cost-saving percentage range if the patient switched from a common branded
-version to the generic version, in a typical retail pharmacy market.
-
-Respond with ONLY a JSON object of this exact shape, no prose:
-{"swaps": [
-  {"id": "<the id given>", "generic_name": "<INN name>", "savings_low": <int 0-90>, "savings_high": <int 0-90>, "note": "<one short plain-language sentence>"}
-]}
-
-If the medicine given is already a generic/INN name with no distinct brand
-premium to speak of, still return an entry with savings_low and savings_high
-both 0, and a short reassuring note that it's already the generic form.
-Never invent a specific currency price — percentages only.
-''';
-
-  List<GenericSwap> _parseResponse(String content, List<Medicine> medicines) {
-    try {
-      final json = jsonDecode(content) as Map<String, dynamic>;
-      final swaps = (json['swaps'] as List?) ?? const [];
-      final byId = {for (final m in medicines) m.id: m};
-      final out = <GenericSwap>[];
-      for (final raw in swaps) {
-        if (raw is! Map) continue;
-        final id = raw['id'] as String?;
-        final medicine = id == null ? null : byId[id];
-        if (medicine == null) continue;
-        out.add(
-          GenericSwap(
-            medicineId: medicine.id,
-            brandName: medicine.name,
-            genericName: (raw['generic_name'] as String?)?.trim().isNotEmpty ==
-                    true
-                ? (raw['generic_name'] as String).trim()
-                : medicine.name,
-            savingsLowPercent: _clampPercent(raw['savings_low']),
-            savingsHighPercent: _clampPercent(raw['savings_high']),
-            note: (raw['note'] as String?)?.trim().isNotEmpty == true
-                ? (raw['note'] as String).trim()
-                : 'Ask your pharmacist if a generic version is available.',
-          ),
-        );
-      }
-      return out;
-    } catch (e) {
-      debugPrint('Savings response parse error: $e');
-      return const [];
+  List<GenericSwap> _parseSwaps(Object? raw, List<Medicine> medicines) {
+    if (raw is! List) return const [];
+    final byId = {for (final m in medicines) m.id: m};
+    final out = <GenericSwap>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      final medicine = byId[entry['id']];
+      if (medicine == null) continue;
+      final generic = (entry['generic_name'] as String?)?.trim();
+      out.add(
+        GenericSwap(
+          medicineId: medicine.id,
+          brandName: medicine.name,
+          genericName:
+              (generic != null && generic.isNotEmpty) ? generic : medicine.name,
+          savingsLowPercent: _clampPercent(entry['savings_low']),
+          savingsHighPercent: _clampPercent(entry['savings_high']),
+          note: (entry['note'] as String?)?.trim().isNotEmpty == true
+              ? (entry['note'] as String).trim()
+              : 'Ask your pharmacist if a generic version is available.',
+        ),
+      );
     }
+    return out;
   }
 
   int _clampPercent(Object? v) {
@@ -233,16 +167,13 @@ Never invent a specific currency price — percentages only.
             genericName: m.name,
             savingsLowPercent: 0,
             savingsHighPercent: 0,
-            note: 'No local match for this name — connect an AI key in '
-                'Assistant settings for a personalised estimate.',
+            note: 'No local match for this name — start the local AI model '
+                'on the backend for a personalised estimate.',
           ),
     ];
   }
 }
 
 final savingsServiceProvider = Provider<SavingsService>((ref) {
-  return SavingsService(
-    dio: Dio(),
-    storage: ref.watch(secureStorageProvider),
-  );
+  return SavingsService(dio: ref.watch(dioClientProvider));
 });

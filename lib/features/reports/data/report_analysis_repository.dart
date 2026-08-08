@@ -10,7 +10,7 @@ import '../../../core/utils/result.dart';
 import '../domain/medical_report.dart';
 
 /// Real, non-demo outcome of analyzing an uploaded report image — every
-/// field is grounded in what the backend's Tesseract+Groq pipeline actually
+/// field is grounded in what the backend's Tesseract + local-LLM pipeline actually
 /// read off the image, never canned/synthetic data (see
 /// `medintel-nexus-backend/app/ocr.py`).
 class ReportAnalysisOutcome {
@@ -54,7 +54,11 @@ class ReportAnalysisRepository {
   );
 
   static const Duration _pollInterval = Duration(seconds: 2);
-  static const int _maxPolls = 12;
+
+  // ~3min ceiling, matching the prescription pipeline. A lab report is the
+  // longest structured response the backend's local model produces, so this
+  // is the flow most likely to outrun a ceiling tuned for a hosted model.
+  static const int _maxPolls = 90;
 
   Future<Result<ReportAnalysisOutcome>> analyzeReport({
     required String imagePath,
