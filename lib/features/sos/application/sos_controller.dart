@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../profile/application/profile_controller.dart';
 import '../../profile/domain/profile_record.dart';
-import '../data/callmebot_service.dart';
 import '../data/sos_native_channel.dart';
 import '../data/sos_repository.dart';
 import '../domain/emergency_event.dart';
@@ -52,7 +51,6 @@ class SosController extends Notifier<SosState> {
 
   SosRepository get _repo => ref.read(sosRepositoryProvider);
   SosNativeChannel get _native => ref.read(sosNativeChannelProvider);
-  CallMeBotService get _whatsApp => ref.read(callMeBotServiceProvider);
 
   @override
   SosState build() {
@@ -240,9 +238,19 @@ class SosController extends Notifier<SosState> {
       if (!called) await makePhoneCall(primary.phone);
     }
 
-    // 6. SMS + WhatsApp every contact — same native-first, fallback-second
-    // pattern per channel, independently, since a contact might allow one
-    // channel to go through natively and not the other.
+    // 6. SMS every contact, then hand off to WhatsApp.
+    //
+    // SMS carries the emergency: on Android with the permission granted it
+    // sends silently, and it goes carrier-to-carrier without passing
+    // through anyone else. WhatsApp is a pre-filled deep link the user
+    // taps.
+    //
+    // That last part used to be automatic, via a free third-party relay
+    // (CallMeBot). It was removed: the message here carries the patient's
+    // live coordinates and medical notes, and it was being handed to an
+    // unaffiliated service in a plaintext query string. A second automatic
+    // channel is not worth broadcasting someone's location and conditions
+    // to a stranger, particularly when SMS already covers the zero-tap case.
     for (final contact in contacts) {
       if (contact.phone.isEmpty) continue;
 
@@ -250,16 +258,7 @@ class SosController extends Notifier<SosState> {
           await _native.sendSms(phone: contact.phone, message: fullMsg);
       if (!smsSent) await sendSms(contact.phone, fullMsg);
 
-      final key = contact.whatsappApiKey;
-      var waSent = false;
-      if (key != null && key.isNotEmpty) {
-        waSent = await _whatsApp.sendMessage(
-          phone: contact.phone,
-          apiKey: key,
-          message: fullMsg,
-        );
-      }
-      if (!waSent) await openWhatsApp(contact.phone, fullMsg);
+      await openWhatsApp(contact.phone, fullMsg);
     }
 
     return event;
@@ -305,8 +304,11 @@ class SosController extends Notifier<SosState> {
 
   /// Opens WhatsApp pre-filled with the emergency message
   /// (https://wa.me/phone?text=...) — the user still has to tap send.
-  /// Fallback for contacts with no CallMeBot key set (see
-  /// `CallMeBotService`), which is the only way to auto-send WhatsApp.
+  ///
+  /// The link is handed to the OS, which hands it to the installed WhatsApp
+  /// app; the message itself never travels through a web request from here.
+  /// That is the whole reason this is the WhatsApp path rather than an
+  /// automatic one — see the note in [triggerSos].
   Future<bool> openWhatsApp(String phoneNumber, String message) async {
     final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
     final encodedMsg = Uri.encodeComponent(message);

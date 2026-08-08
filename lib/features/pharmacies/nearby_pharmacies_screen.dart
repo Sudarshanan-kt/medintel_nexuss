@@ -5,16 +5,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/router/route_names.dart';
 import 'pharmacy_service.dart';
+import '../../core/theme/app_colors.dart';
 
 /// Live "Nearby Pharmacies" — real device location + real pharmacies from
 /// OpenStreetMap, rendered on an interactive map. No API key required.
 class NearbyPharmaciesScreen extends ConsumerWidget {
   const NearbyPharmaciesScreen({super.key});
 
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
-  static const _primary = Color(0xFF2563EB);
-  static const _green = Color(0xFF15803D);
+  static const _ink = AppColors.textPrimary;
+  static const _muted = AppColors.textSecondary;
+  static const _primary = AppColors.info;
+  static const _green = AppColors.successDeep;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -145,7 +146,7 @@ class NearbyPharmaciesScreen extends ConsumerWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          color: const Color(0xFFF8FAFC),
+          color: AppColors.neutral50,
           child: Text(
             pharmacies.isEmpty
                 ? 'No pharmacies found within 3 km'
@@ -184,7 +185,7 @@ class NearbyPharmaciesScreen extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFDCFCE7),
+            color: AppColors.tintGreen,
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(Icons.local_pharmacy, color: _green, size: 20),

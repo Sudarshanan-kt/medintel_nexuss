@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/sos_controller.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Interactive modal overlay showing a 3-second countdown before activating SOS.
 /// Features a prominent CANCEL SOS button to abort immediately.
@@ -27,8 +28,8 @@ class _SosCountdownDialogState extends ConsumerState<SosCountdownDialog>
   Timer? _timer;
   late AnimationController _animController;
 
-  static const _red = Color(0xFFDC2626);
-  static const _ink = Color(0xFF0F172A);
+  static const _red = AppColors.dangerDeep;
+  static const _ink = AppColors.textPrimary;
 
   @override
   void initState() {
@@ -125,7 +126,7 @@ class _SosCountdownDialogState extends ConsumerState<SosCountdownDialog>
             const Text(
               'Activating emergency call & SMS with your GPS location…',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 28),
 
@@ -139,7 +140,7 @@ class _SosCountdownDialogState extends ConsumerState<SosCountdownDialog>
                   child: CircularProgressIndicator(
                     value: _secondsLeft / 3,
                     strokeWidth: 10,
-                    backgroundColor: const Color(0xFFFEE2E2),
+                    backgroundColor: AppColors.tintRed,
                     color: _red,
                   ),
                 ),
@@ -168,12 +169,12 @@ class _SosCountdownDialogState extends ConsumerState<SosCountdownDialog>
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF1F5F9),
+                  backgroundColor: AppColors.neutral100,
                   foregroundColor: _ink,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    side: const BorderSide(color: AppColors.neutral300),
                   ),
                 ),
               ),

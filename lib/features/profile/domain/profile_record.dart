@@ -36,7 +36,6 @@ class EmergencyContact {
     required this.relation,
     required this.phone,
     this.isPrimary = false,
-    this.whatsappApiKey,
   });
   final String id;
   final String name;
@@ -44,19 +43,11 @@ class EmergencyContact {
   final String phone;
   final bool isPrimary;
 
-  /// This contact's own CallMeBot API key, obtained by them opting in once
-  /// (see `CallMeBotService` doc) — null means WhatsApp for this contact
-  /// falls back to a pre-filled wa.me link the user taps to send instead of
-  /// an automatic send.
-  final String? whatsappApiKey;
-
   EmergencyContact copyWith({
     String? name,
     String? relation,
     String? phone,
     bool? isPrimary,
-    String? whatsappApiKey,
-    bool clearWhatsappApiKey = false,
   }) =>
       EmergencyContact(
         id: id,
@@ -64,9 +55,6 @@ class EmergencyContact {
         relation: relation ?? this.relation,
         phone: phone ?? this.phone,
         isPrimary: isPrimary ?? this.isPrimary,
-        whatsappApiKey: clearWhatsappApiKey
-            ? null
-            : (whatsappApiKey ?? this.whatsappApiKey),
       );
 
   Map<String, dynamic> toJson() => {
@@ -75,7 +63,6 @@ class EmergencyContact {
         'relation': relation,
         'phone': phone,
         'isPrimary': isPrimary,
-        'whatsappApiKey': whatsappApiKey,
       };
 
   static EmergencyContact fromJson(Map<String, dynamic> j) => EmergencyContact(
@@ -84,7 +71,6 @@ class EmergencyContact {
         relation: j['relation'] as String? ?? '',
         phone: j['phone'] as String? ?? '',
         isPrimary: (j['isPrimary'] as bool?) ?? false,
-        whatsappApiKey: j['whatsappApiKey'] as String?,
       );
 }
 

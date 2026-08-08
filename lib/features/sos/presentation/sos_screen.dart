@@ -9,6 +9,7 @@ import '../../profile/domain/profile_record.dart';
 import '../application/sos_controller.dart';
 import '../domain/emergency_event.dart';
 import 'sos_countdown_dialog.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Complete Emergency SOS Screen
 class SosScreen extends ConsumerStatefulWidget {
@@ -19,11 +20,11 @@ class SosScreen extends ConsumerStatefulWidget {
 }
 
 class _SosScreenState extends ConsumerState<SosScreen> {
-  static const _red = Color(0xFFDC2626);
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
+  static const _red = AppColors.dangerDeep;
+  static const _ink = AppColors.textPrimary;
+  static const _muted = AppColors.textSecondary;
   static const _green = Color(0xFF16A34A);
-  static const _primary = Color(0xFF2563EB);
+  static const _primary = AppColors.info;
 
   late final TextEditingController _msgCtrl;
   bool? _hasAutoDispatchPermissions;
@@ -63,7 +64,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     final contacts = profile.emergencyContacts;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.neutral50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: _ink,
@@ -148,10 +149,10 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3E2),
+        color: AppColors.tintAmber,
         borderRadius: BorderRadius.circular(16),
         border:
-            Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+            Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +161,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             children: [
               Icon(
                 Icons.bolt_rounded,
-                color: Color(0xFFF59E0B),
+                color: AppColors.warning,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -185,7 +186,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             child: FilledButton(
               onPressed: _requestAutoDispatchPermissions,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
+                backgroundColor: AppColors.warning,
               ),
               child: const Text('Grant permissions'),
             ),
@@ -279,7 +280,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.outline),
       ),
       child: Row(
         children: [
@@ -311,7 +312,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
-              c.isPrimary ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0),
+              c.isPrimary ? const Color(0xFF93C5FD) : AppColors.outline,
           width: c.isPrimary ? 1.5 : 1.0,
         ),
       ),
@@ -322,8 +323,8 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             children: [
               CircleAvatar(
                 backgroundColor: c.isPrimary
-                    ? const Color(0xFFEFF6FF)
-                    : const Color(0xFFF1F5F9),
+                    ? AppColors.tintSky
+                    : AppColors.neutral100,
                 child: Text(
                   c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
                   style: TextStyle(
@@ -498,7 +499,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,7 +546,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.outline),
       ),
       child: Row(
         children: [
@@ -618,8 +619,6 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     final nameCtl = TextEditingController(text: existing?.name ?? '');
     final relCtl = TextEditingController(text: existing?.relation ?? '');
     final phoneCtl = TextEditingController(text: existing?.phone ?? '');
-    final waKeyCtl =
-        TextEditingController(text: existing?.whatsappApiKey ?? '');
     bool isPrimary = existing?.isPrimary ?? false;
 
     await showDialog<void>(
@@ -658,7 +657,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 ),
                 const Divider(height: 24),
                 const Text(
-                  'WhatsApp auto-send (optional)',
+                  'How this contact is alerted',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: _ink,
@@ -667,18 +666,10 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'To have SOS message this contact on WhatsApp automatically: '
-                  'from their phone, message +34 698 28 89 73 on WhatsApp with '
-                  'exactly "I allow callmebot to send me messages", then paste '
-                  'the API key it replies with below. Without a key, WhatsApp '
-                  'opens pre-filled instead — still one tap to send.',
+                  'SMS is sent automatically on Android once you grant the '
+                  'permission, and goes straight to their carrier. WhatsApp '
+                  'then opens pre-filled — one tap to send.',
                   style: TextStyle(color: _muted, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: waKeyCtl,
-                  decoration:
-                      const InputDecoration(labelText: 'CallMeBot API key'),
                 ),
               ],
             ),
@@ -693,14 +684,12 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 if (nameCtl.text.trim().isEmpty) return;
                 final id = existing?.id ??
                     'contact_${DateTime.now().microsecondsSinceEpoch}';
-                final waKey = waKeyCtl.text.trim();
                 final contact = EmergencyContact(
                   id: id,
                   name: nameCtl.text.trim(),
                   relation: relCtl.text.trim(),
                   phone: phoneCtl.text.trim(),
                   isPrimary: isPrimary,
-                  whatsappApiKey: waKey.isEmpty ? null : waKey,
                 );
 
                 if (existing == null) {
@@ -729,6 +718,5 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     nameCtl.dispose();
     relCtl.dispose();
     phoneCtl.dispose();
-    waKeyCtl.dispose();
   }
 }

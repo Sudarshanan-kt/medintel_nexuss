@@ -1,10 +1,10 @@
-import 'dart:convert';
-import 'dart:math' as math;
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../../core/network/api_endpoints.dart';
+import '../../core/network/dio_client.dart';
 
 /// A pharmacy / medical shop returned by OpenStreetMap (Overpass API).
 class Pharmacy {
@@ -35,17 +35,17 @@ class NearbyResult {
   final List<Pharmacy> pharmacies;
 }
 
-/// Finds real pharmacies around the user using only free services:
-///   • Browser/device geolocation (no key)
-///   • OpenStreetMap Overpass API (no key) filtered to amenity=pharmacy
+/// Finds real pharmacies around the user.
+///
+/// The device reads its own position and hands it to this app's backend,
+/// which does the OpenStreetMap lookup on its behalf. It used to query
+/// Overpass directly, which meant a patient's precise coordinates went to a
+/// third party on every search; the backend now snaps them to a coarse grid
+/// first, so what leaves the deployment is a neighbourhood rather than a
+/// doorstep. See `app/routers/pharmacies.py`.
 class PharmacyService {
   PharmacyService(this._dio);
   final Dio _dio;
-
-  static const _overpassEndpoints = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-  ];
 
   /// Default fallback location (used only if geolocation is denied/unavailable
   /// so the demo always shows something). Chennai city centre.
@@ -72,106 +72,62 @@ class PharmacyService {
   }
 
   /// Searches for pharmacies within [radiusMeters] of the user.
+  ///
+  /// Throws on failure rather than returning an empty list — "we couldn't
+  /// search" and "there are no pharmacies near you" are different things to
+  /// tell someone looking for a shop, and the screen renders them
+  /// differently.
   Future<NearbyResult> findNearby({double radiusMeters = 3000}) async {
     final center = await _resolveLocation();
-    final lat = center.latitude;
-    final lon = center.longitude;
 
-    final query = '''
-[out:json][timeout:25];
-(
-  node["amenity"="pharmacy"](around:$radiusMeters,$lat,$lon);
-  way["amenity"="pharmacy"](around:$radiusMeters,$lat,$lon);
-  node["healthcare"="pharmacy"](around:$radiusMeters,$lat,$lon);
-);
-out center 60;
-''';
+    final res = await _dio.get<Map<String, dynamic>>(
+      ApiEndpoints.pharmaciesNearby,
+      queryParameters: {
+        'lat': center.latitude,
+        'lon': center.longitude,
+        'radius_m': radiusMeters.round(),
+      },
+      options: Options(receiveTimeout: const Duration(seconds: 40)),
+    );
 
-    Object? lastError;
-    for (final url in _overpassEndpoints) {
-      try {
-        final res = await _dio.post<String>(
-          url,
-          data: 'data=${Uri.encodeComponent(query)}',
-          options: Options(
-            contentType: 'application/x-www-form-urlencoded',
-            responseType: ResponseType.plain,
-          ),
-        );
-        final pharmacies = _parse(res.data, center);
-        return NearbyResult(center: center, pharmacies: pharmacies);
-      } catch (e) {
-        lastError = e;
-      }
+    final data = res.data?['data'];
+    if (data is! Map || data['searched'] != true) {
+      throw Exception('Pharmacy search is unavailable right now.');
     }
-    throw Exception('Could not load pharmacies: $lastError');
+
+    return NearbyResult(
+      center: center,
+      pharmacies: _parse(data['pharmacies'], center),
+    );
   }
 
-  List<Pharmacy> _parse(String? body, LatLng center) {
-    if (body == null || body.isEmpty) return [];
-    final doc = jsonDecode(body) as Map<String, dynamic>;
-    final elements = (doc['elements'] as List? ?? const []);
+  /// The backend already sorted these by distance from the real position it
+  /// was given, so this preserves order rather than re-sorting.
+  List<Pharmacy> _parse(Object? raw, LatLng center) {
+    if (raw is! List) return const [];
     final list = <Pharmacy>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      final lat = (entry['lat'] as num?)?.toDouble();
+      final lon = (entry['lon'] as num?)?.toDouble();
+      final name = (entry['name'] as String?)?.trim();
+      if (lat == null || lon == null || name == null || name.isEmpty) continue;
 
-    for (final raw in elements) {
-      final e = (raw as Map).cast<String, dynamic>();
-      double? lat = (e['lat'] as num?)?.toDouble();
-      double? lon = (e['lon'] as num?)?.toDouble();
-      final center0 = (e['center'] as Map?)?.cast<String, dynamic>();
-      lat ??= (center0?['lat'] as num?)?.toDouble();
-      lon ??= (center0?['lon'] as num?)?.toDouble();
-      if (lat == null || lon == null) continue;
-
-      final tags = (e['tags'] as Map?)?.cast<String, dynamic>() ?? {};
-      final name = (tags['name'] as String?)?.trim();
-      if (name == null || name.isEmpty) continue; // medical shops only, named
-
-      final loc = LatLng(lat, lon);
       list.add(
         Pharmacy(
           name: name,
-          location: loc,
-          address: _addressOf(tags),
-          distanceMeters: _haversine(center, loc),
+          location: LatLng(lat, lon),
+          address: (entry['address'] as String?)?.trim(),
+          distanceMeters: (entry['distance_m'] as num?)?.toDouble(),
         ),
       );
     }
-
-    list.sort(
-      (a, b) => (a.distanceMeters ?? 1e12).compareTo(b.distanceMeters ?? 1e12),
-    );
     return list;
   }
-
-  String? _addressOf(Map<String, dynamic> t) {
-    final parts = [
-      t['addr:housenumber'],
-      t['addr:street'],
-      t['addr:suburb'] ?? t['addr:neighbourhood'],
-      t['addr:city'],
-    ].whereType<String>().where((s) => s.trim().isNotEmpty).toList();
-    return parts.isEmpty ? null : parts.join(', ');
-  }
-
-  /// Great-circle distance in metres.
-  double _haversine(LatLng a, LatLng b) {
-    const r = 6371000.0;
-    final dLat = _rad(b.latitude - a.latitude);
-    final dLon = _rad(b.longitude - a.longitude);
-    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_rad(a.latitude)) *
-            math.cos(_rad(b.latitude)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    return r * 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
-  }
-
-  double _rad(double deg) => deg * math.pi / 180.0;
 }
 
 final pharmacyServiceProvider = Provider<PharmacyService>((ref) {
-  // Standalone Dio so map/Overpass calls don't inherit the API auth headers.
-  return PharmacyService(Dio());
+  return PharmacyService(ref.watch(dioClientProvider));
 });
 
 /// Loads nearby pharmacies once per screen visit.
