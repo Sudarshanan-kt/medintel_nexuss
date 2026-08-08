@@ -6,9 +6,10 @@ import '../domain/drug_interaction_result.dart';
 /// Runs a fresh interaction check whenever [medicineNames] changes.
 ///
 /// `.family` keyed on the exact list so re-selecting the same set of
-/// medicines reuses the cached result instead of re-hitting the network.
+/// medicines reuses the cached result instead of re-running the check.
 final interactionCheckProvider = FutureProvider.autoDispose
-    .family<List<DrugInteractionResult>, List<String>>((ref, medicineNames) {
-  final repo = ref.watch(interactionRepositoryProvider);
-  return repo.checkInteractions(medicineNames);
+    .family<InteractionCheck, List<String>>((ref, medicineNames) {
+  return ref.watch(interactionRepositoryProvider).checkInteractions(
+        medicineNames,
+      );
 });

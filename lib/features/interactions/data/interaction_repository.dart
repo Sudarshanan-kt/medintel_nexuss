@@ -1,194 +1,127 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../shared/widgets/risk_badge.dart';
 import '../domain/drug_interaction_result.dart';
 
-/// Checks medicine pairs against real FDA drug label text.
+/// Checks medicine combinations against the backend's interaction database.
 ///
-/// The NIH's old purpose-built Drug-Drug Interaction API (part of RxNav)
-/// was discontinued January 2024, and DrugBank's free interaction checker
-/// is being retired in March 2026 — so there is currently no free,
-/// structured, severity-scored interaction API left to call. Instead this
-/// assembles the same answer from two still-live NIH/FDA sources:
-///  1. RxNorm (`rxnav.nlm.nih.gov`) — resolves whatever name the user typed
-///     or picked (brand or generic) to its RxNorm ingredient name, since
-///     FDA labels describe interactions by ingredient, not brand.
-///  2. openFDA's structured product labels (`api.fda.gov/drug/label.json`)
-///     — pulls each drug's own "DRUG INTERACTIONS" section, then checks
-///     whether the other drug's resolved name appears in it.
+/// This used to assemble an answer client-side from two public APIs —
+/// RxNorm to resolve names, then openFDA's label text searched for a mention
+/// of the other drug. That was replaced for three reasons:
 ///
-/// This is real, sourced text — never LLM-generated — but it is a text
-/// search, not a clinical interaction engine: it can miss interactions
-/// phrased around a drug class rather than a specific ingredient name, and
-/// a "no mention found" result is not the same as "confirmed safe". The UI
-/// must carry that caveat prominently; this repository only surfaces what
-/// the labels actually say.
+///  1. It sent the patient's medicine list to third-party servers on every
+///     check. Nothing about a person's prescription needs to leave the
+///     deployment.
+///  2. It was a text search, not a graded verdict: a "no mention found"
+///     result and a genuine all-clear were indistinguishable, and an
+///     interaction phrased around a drug class rather than an ingredient
+///     name was invisible to it.
+///  3. Two network round-trips per drug plus a pairwise scan, versus one
+///     call to a local table.
+///
+/// The backend answers from DDInter 2.0, so the same combination always
+/// gives the same verdict and that verdict cites a source.
 class InteractionRepository {
   InteractionRepository(this._dio);
 
   final Dio _dio;
 
-  /// Resolves [name] to its RxNorm ingredient name and fetches its FDA
-  /// label's interactions section. Never throws — failures just leave the
-  /// corresponding field null so the caller can show "no data" instead of
-  /// crashing the whole check over one bad lookup.
-  Future<ResolvedMedicine> resolve(String name) async {
-    final ingredientName = await _resolveIngredientName(name);
-    final interactionsText =
-        await _fetchInteractionsSection(ingredientName ?? name);
-    return ResolvedMedicine(
-      inputName: name,
-      matchedName: ingredientName,
-      interactionsText: interactionsText,
-    );
-  }
+  /// Checks every pair among [medicineNames].
+  ///
+  /// Never throws: a failure returns a result with `checked: false`, because
+  /// an exception surfaced as an error state is easy to misread as "nothing
+  /// found" once it's been retried away.
+  Future<InteractionCheck> checkInteractions(List<String> medicineNames) async {
+    final unique = medicineNames
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList();
 
-  /// Brand or misspelled name → RxNorm's generic ingredient name.
-  /// e.g. "Tylenol" → "acetaminophen".
-  Future<String?> _resolveIngredientName(String name) async {
+    if (unique.length < 2) {
+      return const InteractionCheck(
+        checked: true,
+        interactions: [],
+        overallRisk: RiskLevel.none,
+        disclaimer: 'Add at least two medicines to check for interactions.',
+      );
+    }
+
     try {
-      final approx = await _dio.get<Map<String, dynamic>>(
-        'https://rxnav.nlm.nih.gov/REST/approximateTerm.json',
-        queryParameters: {'term': name, 'maxEntries': 1},
+      final res = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.interactionsCheck,
+        options: Options(
+          // The backend may generate a plain-language explanation per
+          // interacting pair on a local model, which is not fast.
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+        data: {'medicine_names': unique},
       );
-      final candidates = (approx.data?['approximateGroup']
-          as Map<String, dynamic>?)?['candidate'] as List?;
-      final rxcui = candidates?.isNotEmpty == true
-          ? candidates!.first['rxcui'] as String?
-          : null;
-      if (rxcui == null) return null;
 
-      final related = await _dio.get<Map<String, dynamic>>(
-        'https://rxnav.nlm.nih.gov/REST/rxcui/$rxcui/related.json',
-        queryParameters: {'tty': 'IN'},
-      );
-      final groups = (related.data?['relatedGroup']
-          as Map<String, dynamic>?)?['conceptGroup'] as List?;
-      for (final group in groups ?? const []) {
-        final props =
-            (group as Map<String, dynamic>)['conceptProperties'] as List?;
-        final first = props?.isNotEmpty == true
-            ? props!.first as Map<String, dynamic>
-            : null;
-        final resolved = first?['name'] as String?;
-        if (resolved != null && resolved.isNotEmpty) return resolved;
-      }
-      return null;
+      final data = res.data?['data'];
+      if (data is! Map) return _unavailable();
+      return _parse(data.cast<String, dynamic>());
     } catch (_) {
-      return null;
+      return _unavailable();
     }
   }
 
-  /// Fetches the "DRUG INTERACTIONS" free-text section of [drugName]'s
-  /// FDA label. Tries generic name first, then brand name.
-  Future<String?> _fetchInteractionsSection(String drugName) async {
-    for (final field in ['openfda.generic_name', 'openfda.brand_name']) {
-      try {
-        final res = await _dio.get<Map<String, dynamic>>(
-          'https://api.fda.gov/drug/label.json',
-          queryParameters: {
-            'search': '$field:"${drugName.toLowerCase()}"',
-            'limit': 1,
-          },
-        );
-        final results = res.data?['results'] as List?;
-        if (results == null || results.isEmpty) continue;
-        final sections = (results.first
-            as Map<String, dynamic>)['drug_interactions'] as List?;
-        if (sections != null && sections.isNotEmpty) {
-          return sections.join(' ');
-        }
-      } catch (_) {
-        // Try the next field / give up gracefully.
-      }
-    }
-    return null;
-  }
+  InteractionCheck _parse(Map<String, dynamic> data) {
+    if (data['checked'] != true) return _unavailable();
 
-  /// Checks every pair among [medicineNames] for a mention of one in the
-  /// other's FDA label interactions text.
-  Future<List<DrugInteractionResult>> checkInteractions(
-    List<String> medicineNames,
-  ) async {
-    final unique = medicineNames.toSet().toList();
-    final resolved = await Future.wait(unique.map(resolve));
-
-    final results = <DrugInteractionResult>[];
-    for (var i = 0; i < resolved.length; i++) {
-      for (var j = i + 1; j < resolved.length; j++) {
-        results.add(_comparePair(resolved[i], resolved[j]));
-      }
-    }
-    return results;
-  }
-
-  DrugInteractionResult _comparePair(ResolvedMedicine a, ResolvedMedicine b) {
-    final aExcerpt = _findMention(a.interactionsText, b);
-    if (aExcerpt != null) {
-      return DrugInteractionResult(
-        medicineA: a.inputName,
-        medicineB: b.inputName,
-        found: true,
-        excerpt: aExcerpt,
-        mentionedIn: a.inputName,
-      );
-    }
-    final bExcerpt = _findMention(b.interactionsText, a);
-    if (bExcerpt != null) {
-      return DrugInteractionResult(
-        medicineA: a.inputName,
-        medicineB: b.inputName,
-        found: true,
-        excerpt: bExcerpt,
-        mentionedIn: b.inputName,
-      );
-    }
-    return DrugInteractionResult(
-      medicineA: a.inputName,
-      medicineB: b.inputName,
-      found: false,
+    return InteractionCheck(
+      checked: true,
+      overallRisk: _risk(data['overall_risk'] as String?),
+      interactions: [
+        for (final raw in (data['interactions'] as List? ?? const []))
+          if (raw is Map) _interaction(raw.cast<String, dynamic>()),
+      ],
+      unrecognized: [
+        for (final n in (data['unrecognized'] as List? ?? const []))
+          n.toString(),
+      ],
+      ungradedPairCount: (data['ungraded_pair_count'] as num?)?.toInt() ?? 0,
+      disclaimer: (data['disclaimer'] as String?) ?? '',
+      source: data['source'] as String?,
     );
   }
 
-  /// Looks for [other]'s resolved (or raw) name as a whole word inside
-  /// [text], returning the containing sentence if found.
-  String? _findMention(String? text, ResolvedMedicine other) {
-    if (text == null) return null;
-    final needle = (other.matchedName ?? other.inputName).toLowerCase();
-    if (needle.isEmpty) return null;
-
-    final pattern =
-        RegExp(r'\b' + RegExp.escape(needle) + r'\b', caseSensitive: false);
-    final match = pattern.firstMatch(text);
-    if (match == null) return null;
-
-    // Expand to the containing sentence for readable context.
-    final periodBefore = text.lastIndexOf('. ', match.start);
-    final sentenceStart = periodBefore == -1 ? 0 : periodBefore + 2;
-    final sentenceEndCandidates = ['. ', '.\n'];
-    var sentenceEnd = text.length;
-    for (final delim in sentenceEndCandidates) {
-      final idx = text.indexOf(delim, match.end);
-      if (idx != -1 && idx < sentenceEnd) sentenceEnd = idx + 1;
-    }
-    final excerpt = text.substring(sentenceStart, sentenceEnd).trim();
-    return excerpt.length > 400 ? '${excerpt.substring(0, 400)}…' : excerpt;
+  DrugInteraction _interaction(Map<String, dynamic> raw) {
+    final names = (raw['medicines'] as List? ?? const [])
+        .map((n) => n.toString())
+        .toList();
+    return DrugInteraction(
+      medicineA: names.isNotEmpty ? names[0] : '—',
+      medicineB: names.length > 1 ? names[1] : '—',
+      risk: _risk(raw['risk'] as String?) ?? RiskLevel.moderate,
+      level: (raw['level'] as String?) ?? 'Moderate',
+      mechanism: (raw['mechanism'] as String?)?.trim() ?? '',
+      recommendation: (raw['recommendation'] as String?)?.trim() ?? '',
+      explained: raw['explained'] != false,
+    );
   }
+
+  RiskLevel? _risk(String? value) => switch (value) {
+        'severe' => RiskLevel.severe,
+        'moderate' => RiskLevel.moderate,
+        'none' => RiskLevel.none,
+        _ => null,
+      };
+
+  InteractionCheck _unavailable() => const InteractionCheck(
+        checked: false,
+        interactions: [],
+        // Deliberately null, not none: the check did not run, so there is no
+        // verdict to report.
+        overallRisk: null,
+        disclaimer: 'Interaction check unavailable right now — please consult '
+            'a pharmacist or doctor before combining these medicines.',
+      );
 }
 
-/// Dedicated Dio instance for public third-party health-data APIs
-/// (RxNav/openFDA) — deliberately not [dioClientProvider], which attaches
-/// the user's Supabase auth token; that token has no business leaving the
-/// app's own backend.
-final interactionsDioProvider = Provider<Dio>((ref) {
-  return Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ),
-  );
-});
-
 final interactionRepositoryProvider = Provider<InteractionRepository>((ref) {
-  return InteractionRepository(ref.watch(interactionsDioProvider));
+  return InteractionRepository(ref.watch(dioClientProvider));
 });

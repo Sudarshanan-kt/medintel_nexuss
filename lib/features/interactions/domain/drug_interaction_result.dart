@@ -1,50 +1,79 @@
-/// The outcome of checking one pair of medicines against FDA drug label
-/// text (see `InteractionRepository`).
+import '../../../shared/widgets/risk_badge.dart';
+
+/// One interacting pair, as graded by the backend's interaction database.
 ///
-/// This is a text-search result, not a clinically-scored severity
-/// classification: [excerpt] is the sentence pulled from [mentionedIn]'s
-/// own FDA label where the other drug's name appears. A null [excerpt]
-/// means no mention was found in either direction — which is evidence of
-/// absence, not proof of safety, and the UI must say so.
-class DrugInteractionResult {
-  const DrugInteractionResult({
+/// [level] is the database's own wording (Major / Moderate / Minor), kept
+/// verbatim so a verdict stays traceable to its source. [risk] is the app's
+/// three-level vocabulary that drives the badge colour — Minor maps to
+/// [RiskLevel.moderate] rather than none, because a minor interaction is
+/// still an interaction.
+class DrugInteraction {
+  const DrugInteraction({
     required this.medicineA,
     required this.medicineB,
-    required this.found,
-    this.excerpt,
-    this.mentionedIn,
+    required this.risk,
+    required this.level,
+    required this.mechanism,
+    required this.recommendation,
+    this.explained = true,
   });
 
   final String medicineA;
   final String medicineB;
-  final bool found;
+  final RiskLevel risk;
+  final String level;
 
-  /// The sentence(s) containing the match, pulled verbatim from the label.
-  final String? excerpt;
+  /// Plain-language explanation of why the two interact.
+  final String mechanism;
 
-  /// Which of the two drugs' label text the excerpt came from.
-  final String? mentionedIn;
+  /// What the patient should actually do about it.
+  final String recommendation;
+
+  /// False when [mechanism] is the fixed fallback text rather than a
+  /// generated explanation. The severity above it is unaffected either way —
+  /// it comes from the database, not from whatever wrote this sentence.
+  final bool explained;
+
+  String get pairLabel => '$medicineA + $medicineB';
 }
 
-/// One selected medicine's resolution against RxNorm + its FDA label
-/// interaction section, cached for the duration of one check so pairwise
-/// comparisons don't refetch.
-class ResolvedMedicine {
-  const ResolvedMedicine({
-    required this.inputName,
-    required this.matchedName,
-    required this.interactionsText,
+/// The result of one interaction check.
+///
+/// Three fields exist purely so an empty [interactions] list can never be
+/// mistaken for an all-clear, which is the failure mode this whole screen
+/// has to avoid:
+///
+/// * [checked] false — the check could not run at all.
+/// * [unrecognized] — drugs the database has never heard of. Nothing was
+///   checked for those.
+/// * [ungradedPairCount] — pairs the database lists without an established
+///   severity. Not warnings, but not nothing either.
+class InteractionCheck {
+  const InteractionCheck({
+    required this.checked,
+    required this.interactions,
+    required this.disclaimer,
+    this.overallRisk,
+    this.unrecognized = const [],
+    this.ungradedPairCount = 0,
+    this.source,
   });
 
-  /// What the user typed / selected.
-  final String inputName;
+  final bool checked;
+  final List<DrugInteraction> interactions;
+  final String disclaimer;
 
-  /// RxNorm's resolved generic (ingredient) name, if found — this is what
-  /// gets searched for in the *other* drug's label text, since labels
-  /// overwhelmingly refer to ingredients rather than brand names.
-  final String? matchedName;
+  /// Null when [checked] is false — never "none", which would read as safe.
+  final RiskLevel? overallRisk;
 
-  /// Full text of this drug's own "DRUG INTERACTIONS" label section, or
-  /// null if no FDA label was found for it at all.
-  final String? interactionsText;
+  final List<String> unrecognized;
+  final int ungradedPairCount;
+
+  /// Which dataset answered, for attribution.
+  final String? source;
+
+  /// True only when the check ran, every drug was recognised, and nothing
+  /// was found. The only circumstance in which reassurance is honest.
+  bool get isClear =>
+      checked && interactions.isEmpty && unrecognized.isEmpty;
 }

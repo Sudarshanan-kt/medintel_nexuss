@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 uploads/
 .DS_Store
+
+# Derived third-party data, rebuilt with scripts/import_ddinter.py.
+# Not committed: it is ~8 MB of generated artefact, and the DDInter
+# licence terms have not been verified for redistribution.
+data/
