@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,9 +11,12 @@ import 'adherence_controller.dart';
 import 'adherence_streak_card.dart';
 import 'alarm_ring_screen.dart';
 import 'data/alarm_service.dart';
+import 'data/barcode_memory.dart';
+import 'data/medicine_barcode_scanner.dart';
 import 'data/medicine_label_scanner.dart';
 import 'domain/medicine.dart';
 import 'reminders_controller.dart';
+import '../../core/theme/app_colors.dart';
 
 /// Complete Medicine Manager Screen
 ///
@@ -34,12 +39,12 @@ class _MedicineReminderScreenState
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
-  static const _primary = Color(0xFF2563EB);
-  static const _green = Color(0xFF15803D);
-  static const _red = Color(0xFFDC2626);
-  static const _amber = Color(0xFFD97706);
+  static const _ink = AppColors.textPrimary;
+  static const _muted = AppColors.textSecondary;
+  static const _primary = AppColors.info;
+  static const _green = AppColors.successDeep;
+  static const _red = AppColors.dangerDeep;
+  static const _amber = AppColors.warningDeep;
 
   int _medSegment = 0; // 0 = Active, 1 = Completed
 
@@ -60,7 +65,7 @@ class _MedicineReminderScreenState
     final state = ref.watch(remindersControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.neutral50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: _ink,
@@ -149,9 +154,9 @@ class _MedicineReminderScreenState
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
+            color: AppColors.tintSky,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
+            border: Border.all(color: AppColors.outline),
           ),
           child: Row(
             children: [
@@ -230,18 +235,14 @@ class _MedicineReminderScreenState
     String slot,
     MedicineManagerState state,
   ) {
-    final now = DateTime.now();
-    DoseLog? todayLog;
-    for (final log in state.logs) {
-      if (log.medicineId == med.id &&
-          log.scheduleSlot == slot &&
-          log.timestamp.year == now.year &&
-          log.timestamp.month == now.month &&
-          log.timestamp.day == now.day) {
-        todayLog = log;
-        break;
-      }
-    }
+    // Shared with the dashboard via the controller, so both surfaces agree
+    // on whether this dose is done. They each had their own copy of this
+    // lookup before, which is how they came to disagree.
+    final todayLog = ref.read(remindersControllerProvider.notifier).doseLogFor(
+          medicineId: med.id,
+          scheduleSlot: slot,
+          day: DateTime.now(),
+        );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -249,7 +250,7 @@ class _MedicineReminderScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.outline),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -267,7 +268,7 @@ class _MedicineReminderScreenState
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
+                  color: AppColors.tintGreen,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.medication_rounded, color: _green),
@@ -311,10 +312,10 @@ class _MedicineReminderScreenState
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: todayLog.isTaken
-                    ? const Color(0xFFDCFCE7)
+                    ? AppColors.tintGreen
                     : (todayLog.status == 'snoozed'
-                        ? const Color(0xFFFEF3C7)
-                        : const Color(0xFFFEE2E2)),
+                        ? AppColors.tintAmber
+                        : AppColors.tintRed),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -406,9 +407,9 @@ class _MedicineReminderScreenState
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
+                      color: AppColors.tintAmber,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      border: Border.all(color: AppColors.tintAmber),
                     ),
                     child: const Row(
                       children: [
@@ -482,7 +483,7 @@ class _MedicineReminderScreenState
             width: double.infinity,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
+              color: AppColors.outline,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -577,7 +578,7 @@ class _MedicineReminderScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.outline),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -638,12 +639,12 @@ class _MedicineReminderScreenState
             spacing: 8,
             runSpacing: 6,
             children: [
-              if (med.dosage.isNotEmpty) _badge(med.dosage, const Color(0xFFEFF6FF), _primary),
-              _badge(med.frequency, const Color(0xFFF1F5F9), _ink),
-              _badge('Sound: ${med.sound}', const Color(0xFFF3E8FF), const Color(0xFF7E22CE)),
-              if (med.morning) _badge('Morning ($morningTimeStr)', const Color(0xFFFEF3C7), const Color(0xFFD97706)),
+              if (med.dosage.isNotEmpty) _badge(med.dosage, AppColors.tintSky, _primary),
+              _badge(med.frequency, AppColors.neutral100, _ink),
+              _badge('Sound: ${med.sound}', AppColors.tintViolet, const Color(0xFF7E22CE)),
+              if (med.morning) _badge('Morning ($morningTimeStr)', AppColors.tintAmber, AppColors.warningDeep),
               if (med.afternoon) _badge('Afternoon ($afternoonTimeStr)', const Color(0xFFFFEDD5), const Color(0xFFC2410C)),
-              if (med.night) _badge('Night ($nightTimeStr)', const Color(0xFFF3E8FF), const Color(0xFF7E22CE)),
+              if (med.night) _badge('Night ($nightTimeStr)', AppColors.tintViolet, const Color(0xFF7E22CE)),
             ],
           ),
 
@@ -707,7 +708,7 @@ class _MedicineReminderScreenState
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: AppColors.outline),
           ),
           child: Row(
             children: [
@@ -830,12 +831,25 @@ class _MedicineReminderScreenState
 
   // ── Add Medicine Bottom Sheet Form ─────────────────────────────────────────
 
+  /// Identifies a medicine from one photo of its pack.
+  ///
+  /// Tries the barcode first because it's exact, then falls back to reading
+  /// the printed name. Both run on-device.
+  ///
+  /// Most medicine barcodes are only a product number, and no free database
+  /// maps those to Indian drug names — so an unrecognised code isn't a dead
+  /// end: the patient types the name once, [onBarcodeToRemember] holds it,
+  /// and saving the medicine teaches the app that pack for next time.
+  ///
+  /// Everything here fills editable fields. Nothing is committed on the
+  /// strength of a scan alone.
   Future<void> _scanMedicineLabel(
     BuildContext sheetCtx,
     TextEditingController nameCtl,
     TextEditingController dosageCtl,
     void Function(void Function()) setSheet,
     void Function(bool) setScanning,
+    void Function(String?) onBarcodeToRemember,
   ) async {
     setScanning(true);
     try {
@@ -845,33 +859,69 @@ class _MedicineReminderScreenState
       );
       if (photo == null) return;
 
-      final result =
-          await ref.read(medicineLabelScannerProvider).scan(photo.path);
-      if (result == null) {
-        if (sheetCtx.mounted) {
-          ScaffoldMessenger.of(sheetCtx).showSnackBar(
-            const SnackBar(
-              content: Text(
-                "Couldn't read the label clearly — try a closer, "
-                'well-lit photo, or type it in.',
-              ),
-            ),
-          );
+      void fill(String name, String? dosage) {
+        setSheet(() {
+          nameCtl.text = name;
+          if (dosage != null && dosage.isNotEmpty) dosageCtl.text = dosage;
+        });
+      }
+
+      void say(String message) {
+        if (!sheetCtx.mounted) return;
+        ScaffoldMessenger.of(sheetCtx).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+
+      // 1 · The barcode, if the pack has one.
+      final barcode =
+          await ref.read(medicineBarcodeScannerProvider).scan(photo.path);
+
+      if (barcode != null) {
+        // Some packs encode the drug's own details — India's DCGI rules
+        // require it of the top 300 brands — so nothing needs looking up.
+        if (barcode.hasName) {
+          onBarcodeToRemember(null);
+          fill(barcode.name!, barcode.strength);
+          say('Read from the pack\'s code — please check it\'s correct.');
+          return;
         }
+
+        // Otherwise: have we been told what this pack is before?
+        final remembered =
+            await ref.read(barcodeMemoryProvider).lookup(barcode.rawValue);
+        if (remembered != null) {
+          onBarcodeToRemember(null);
+          fill(remembered.name, remembered.strength);
+          say('Recognised this pack from last time.');
+          return;
+        }
+
+        // A code we've never seen. Ask once, remember on save.
+        onBarcodeToRemember(barcode.rawValue);
+      }
+
+      // 2 · Fall back to reading the printed name off the box.
+      final label =
+          await ref.read(medicineLabelScannerProvider).scan(photo.path);
+
+      if (label != null) {
+        fill(label.name, label.dosage);
+        say(
+          barcode == null
+              ? 'Detected from photo — please check it\'s correct.'
+              : 'New pack. Check the name, and I\'ll remember this barcode.',
+        );
         return;
       }
 
-      setSheet(() {
-        nameCtl.text = result.name;
-        if (result.dosage != null) dosageCtl.text = result.dosage!;
-      });
-      if (sheetCtx.mounted) {
-        ScaffoldMessenger.of(sheetCtx).showSnackBar(
-          const SnackBar(
-            content: Text('Detected from photo — please check it\'s correct.'),
-          ),
-        );
-      }
+      say(
+        barcode == null
+            ? "Couldn't read the label clearly — try a closer, well-lit "
+                'photo, or type it in.'
+            : "New pack, and the name wasn't readable. Type it once and "
+                "I'll remember this barcode.",
+      );
     } finally {
       setScanning(false);
     }
@@ -885,6 +935,11 @@ class _MedicineReminderScreenState
     final dosageCtl = TextEditingController();
     final purposeCtl = TextEditingController();
     bool scanningLabel = false;
+
+    /// A scanned barcode we couldn't identify. Held until the medicine is
+    /// saved — that's the point at which the patient has confirmed the name,
+    /// and only a confirmed name is worth remembering against a pack.
+    String? barcodeToRemember;
 
     String frequency = 'Daily';
     String sound = 'default'; // 'default', 'gentle', 'chime', 'urgent', 'classic'
@@ -924,7 +979,7 @@ class _MedicineReminderScreenState
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
+                          color: AppColors.neutral300,
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -953,6 +1008,7 @@ class _MedicineReminderScreenState
                                   dosageCtl,
                                   setSheet,
                                   (v) => setSheet(() => scanningLabel = v),
+                                  (code) => barcodeToRemember = code,
                                 ),
                         icon: scanningLabel
                             ? const SizedBox(
@@ -960,9 +1016,11 @@ class _MedicineReminderScreenState
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.document_scanner_rounded),
+                            : const Icon(Icons.qr_code_scanner_rounded),
                         label: Text(
-                          scanningLabel ? 'Reading label…' : 'Scan package',
+                          scanningLabel
+                              ? 'Reading pack…'
+                              : 'Scan barcode or package',
                         ),
                       ),
                     ),
@@ -1179,6 +1237,22 @@ class _MedicineReminderScreenState
                         ),
                         onPressed: () {
                           if (nameCtl.text.trim().isEmpty) return;
+
+                          // Saving is the patient confirming the name, so
+                          // it's the only point at which a scanned pack is
+                          // worth learning. Fire-and-forget: failing to
+                          // remember a barcode must never block the alarm.
+                          final code = barcodeToRemember;
+                          if (code != null) {
+                            unawaited(
+                              ref.read(barcodeMemoryProvider).remember(
+                                    code,
+                                    name: nameCtl.text,
+                                    strength: dosageCtl.text,
+                                  ),
+                            );
+                          }
+
                           ref.read(remindersControllerProvider.notifier).addMedicine(
                                 name: nameCtl.text,
                                 dosage: dosageCtl.text,
@@ -1238,9 +1312,9 @@ class _MedicineReminderScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+        color: selected ? AppColors.tintSky : AppColors.neutral50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: selected ? _primary : const Color(0xFFCBD5E1)),
+        border: Border.all(color: selected ? _primary : AppColors.neutral300),
       ),
       child: Row(
         children: [
