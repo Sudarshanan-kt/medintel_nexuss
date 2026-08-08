@@ -58,7 +58,21 @@ class RemindersController extends Notifier<MedicineManagerState> {
 
   void _log(String msg) => dev.log(msg, name: 'medicines.controller');
 
-  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
+  /// The signed-in user, or null when there isn't one *or* Supabase hasn't
+  /// finished initialising.
+  ///
+  /// Reading `Supabase.instance` before `Supabase.initialize` completes
+  /// throws an assertion rather than returning null, which would take down
+  /// a dose log made during cold start. Local state and the on-device cache
+  /// are the source of truth here; the remote copy is a sync target, so
+  /// losing it for one write is recoverable and crashing is not.
+  String? get _userId {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   MedicinesRepository get _repo => ref.read(medicinesRepositoryProvider);
 
@@ -368,6 +382,17 @@ class RemindersController extends Notifier<MedicineManagerState> {
     }
   }
 
+  /// Records the outcome of one scheduled dose.
+  ///
+  /// A dose is identified by medicine + slot + calendar day, and there can
+  /// only ever be one outcome for it. Logging the same dose again *replaces*
+  /// the previous entry rather than adding another.
+  ///
+  /// That matters because adherence is computed by counting logs: without
+  /// this, tapping "Taken" twice counted two doses taken, so the percentage
+  /// climbed every tap and could exceed what was actually scheduled. It also
+  /// means changing your mind — marking taken after a snooze — corrects the
+  /// record instead of leaving both entries in it.
   void logDose({
     required String medicineId,
     required String medicineName,
@@ -375,19 +400,54 @@ class RemindersController extends Notifier<MedicineManagerState> {
     required String scheduleSlot,
     required String status,
   }) {
+    final now = DateTime.now();
+    final existing = doseLogFor(
+      medicineId: medicineId,
+      scheduleSlot: scheduleSlot,
+      day: now,
+    );
+
+    // Reuse the id so the remote row is updated rather than duplicated.
     final log = DoseLog(
-      id: 'log_${DateTime.now().microsecondsSinceEpoch}',
+      id: existing?.id ?? 'log_${now.microsecondsSinceEpoch}',
       medicineId: medicineId,
       medicineName: medicineName,
       dosage: dosage,
       scheduleSlot: scheduleSlot,
-      timestamp: DateTime.now(),
+      timestamp: now,
       status: status,
     );
 
-    state = state.copyWith(logs: [log, ...state.logs]);
+    state = state.copyWith(
+      logs: [
+        log,
+        ...state.logs.where((l) => l.id != log.id),
+      ],
+    );
     _persistLocal();
     _upsertLogRemote(log);
+  }
+
+  /// The recorded outcome for one dose on [day], or null if it hasn't been
+  /// acted on yet.
+  ///
+  /// Shared by every surface that shows a dose, so the dashboard and the
+  /// reminders screen can't disagree about whether it's been taken.
+  DoseLog? doseLogFor({
+    required String medicineId,
+    required String scheduleSlot,
+    required DateTime day,
+  }) {
+    for (final log in state.logs) {
+      if (log.medicineId == medicineId &&
+          log.scheduleSlot == scheduleSlot &&
+          log.timestamp.year == day.year &&
+          log.timestamp.month == day.month &&
+          log.timestamp.day == day.day) {
+        return log;
+      }
+    }
+    return null;
   }
 
   void snoozeDose({
