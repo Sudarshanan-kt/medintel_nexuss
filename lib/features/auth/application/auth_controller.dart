@@ -140,6 +140,38 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = AsyncData(await _fromUserResult(result, fallback: roleHint));
   }
 
+  // ── Phone OTP ─────────────────────────────────────────────────────────────
+
+  /// Texts a one-time code to [phone] (E.164, e.g. `+919876543210`).
+  /// Returns an error message, or null on success.
+  ///
+  /// Deliberately does not touch [state]: the user is not signed in yet, and
+  /// flipping to [AsyncLoading] here would bounce the router mid-flow and
+  /// throw away the number they just typed.
+  Future<String?> sendPhoneOtp(String phone) async {
+    final result = await _repo.sendPhoneOtp(phone: phone);
+    return result.when(
+      success: (_) => null,
+      failure: (f) => f.message,
+    );
+  }
+
+  /// Completes an SMS OTP sign-in.
+  ///
+  /// [roleHint] applies only to an account with no role recorded yet — the
+  /// first sign-in of a brand-new caregiver. An existing account keeps the
+  /// role on its profile, so signing in through the caregiver screen can
+  /// never convert a patient account (or hand over someone else's data).
+  Future<void> verifyPhoneOtp(
+    String phone,
+    String token, {
+    UserRole roleHint = UserRole.patient,
+  }) async {
+    state = const AsyncLoading();
+    final result = await _repo.verifyPhoneOtp(phone: phone, token: token);
+    state = AsyncData(await _fromUserResult(result, fallback: roleHint));
+  }
+
   // ── Google Sign-In ────────────────────────────────────────────────────────
 
   Future<void> signInWithGoogle({

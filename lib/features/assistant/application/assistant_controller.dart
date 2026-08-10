@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/application/auth_controller.dart';
 import '../data/assistant_service.dart';
 import '../data/voice_service.dart';
 import '../domain/chat_message.dart';
@@ -78,14 +79,26 @@ class AssistantController extends Notifier<AssistantState> {
   AssistantState build() {
     // Best-effort: warm up the voice subsystems on first access.
     Future.microtask(_voice.initialise);
-    return const AssistantState(
+
+    // The greeting used to address a hardcoded "Aravind" — whoever signed
+    // in was welcomed by somebody else's name. Falls back to no name rather
+    // than a placeholder one.
+    final name =
+        ref.watch(authControllerProvider).valueOrNull?.user?.displayName.trim();
+    final greeting = (name == null || name.isEmpty)
+        ? 'Hi.'
+        : 'Hi ${name.split(RegExp(r"\s+")).first}.';
+
+    return AssistantState(
       language: AssistantLanguage.english,
       messages: [
         ChatMessage(
           id: 'welcome',
           role: MessageRole.assistant,
           content:
-              "Hi Aravind. I'm your MedIntel assistant. Tap and hold to talk — ask me about your medicines, reports, or how to take a dose. I'm here in English or Tamil.",
+              "$greeting I'm your MedIntel assistant. Tap and hold to talk — "
+              'ask me about your medicines, reports, or how to take a dose. '
+              "I'm here in English or Tamil.",
           language: AssistantLanguage.english,
         ),
       ],

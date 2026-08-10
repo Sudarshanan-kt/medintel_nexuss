@@ -7,77 +7,24 @@ import '../domain/care_circle_models.dart';
 
 /// Supabase repository for the Family/Caregiver Circle feature.
 ///
-/// Table DDLs (run once in the Supabase SQL editor). Display names are
-/// snapshotted onto the invite/membership rows at creation/accept time
-/// rather than joined from `health_profiles` at read time — deliberately
-/// keeps the rest of a patient's health profile un-exposed to caregivers in
-/// v1; only adherence data (medicines/medicine_logs) is shared, via the
-/// additive policies at the bottom.
-/// ```sql
-/// create table if not exists public.care_circle_invites (
-///   id                    text primary key,
-///   patient_id            uuid not null references auth.users(id) on delete cascade,
-///   patient_display_name  text not null default 'Patient',
-///   invite_code           text not null unique,
-///   status                text not null default 'pending',
-///   created_at            timestamptz default now(),
-///   expires_at            timestamptz not null default (now() + interval '7 days')
-/// );
-/// alter table public.care_circle_invites enable row level security;
-/// create policy "Patient manages own invites" on public.care_circle_invites
-///   for all using (auth.uid() = patient_id) with check (auth.uid() = patient_id);
-/// create policy "Anyone can look up an invite by code" on public.care_circle_invites
-///   for select using (true);
+/// Schema lives in `supabase/migrations/`, not in this comment — the DDL
+/// that used to sit here drifted out of sync with what the feature actually
+/// needs and shipped two holes with it (see
+/// `20260810090400_care_circle_invite_hardening.sql`). Apply with
+/// `supabase db push`.
 ///
-/// create table if not exists public.care_circle_members (
-///   id                      text primary key,
-///   patient_id              uuid not null references auth.users(id) on delete cascade,
-///   patient_display_name    text not null default 'Patient',
-///   caregiver_id            uuid not null references auth.users(id) on delete cascade,
-///   caregiver_display_name  text not null default 'Caregiver',
-///   status                  text not null default 'active',
-///   created_at              timestamptz default now(),
-///   unique(patient_id, caregiver_id)
-/// );
-/// alter table public.care_circle_members enable row level security;
-/// create policy "Patient manages own circle" on public.care_circle_members
-///   for all using (auth.uid() = patient_id) with check (auth.uid() = patient_id);
-/// create policy "Caregiver reads own memberships" on public.care_circle_members
-///   for select using (auth.uid() = caregiver_id);
-/// create policy "Invitee can accept a pending invite" on public.care_circle_members
-///   for insert with check (
-///     auth.uid() = caregiver_id
-///     and exists (
-///       select 1 from public.care_circle_invites i
-///       where i.patient_id = care_circle_members.patient_id
-///         and i.status = 'pending'
-///         and i.expires_at > now()
-///     )
-///   );
+/// Two things about the design that this file depends on:
 ///
-/// -- Additive read-only policies layered on top of the patient's own
-/// -- ownership policy (Postgres RLS policies OR together for the same
-/// -- command) so a linked, active caregiver can read — never write —
-/// -- a patient's medicines and dose logs.
-/// create policy "Caregivers read linked patient medicines" on public.medicines
-///   for select using (
-///     exists (
-///       select 1 from public.care_circle_members m
-///       where m.patient_id = medicines.user_id
-///         and m.caregiver_id = auth.uid()
-///         and m.status = 'active'
-///     )
-///   );
-/// create policy "Caregivers read linked patient dose logs" on public.medicine_logs
-///   for select using (
-///     exists (
-///       select 1 from public.care_circle_members m
-///       where m.patient_id = medicine_logs.user_id
-///         and m.caregiver_id = auth.uid()
-///         and m.status = 'active'
-///     )
-///   );
-/// ```
+/// Display names are snapshotted onto the invite/membership rows at
+/// creation/accept time rather than joined from `health_profiles` at read
+/// time. That deliberately keeps the rest of a patient's health profile
+/// un-exposed to caregivers in v1 — only adherence data (medicines and
+/// medicine_logs) is shared, via additive read-only policies.
+///
+/// A caregiver has no direct access to `care_circle_invites` whatsoever.
+/// Previewing and redeeming a code both go through security-definer
+/// functions that require the exact code, so there is no query that returns
+/// a list of invites and no way to act on one you were not given.
 class CareCircleRepository {
   CareCircleRepository(this._supabase);
 
@@ -120,46 +67,58 @@ class CareCircleRepository {
     throw Exception('Could not generate a unique invite code — try again.');
   }
 
+  /// Looks up an invite by its exact code, for the "whose circle am I
+  /// joining?" preview.
+  ///
+  /// Goes through an RPC rather than selecting the table: a caregiver has no
+  /// read policy on `care_circle_invites` at all, deliberately. The table
+  /// used to be world-readable to any signed-in user, which handed out the
+  /// patient_id of everyone with an invite open — see
+  /// `20260810090400_care_circle_invite_hardening.sql`.
   Future<CareCircleInvite?> lookupInvite(String code) async {
     final trimmed = code.trim().toUpperCase();
     if (trimmed.isEmpty) return null;
     final rows = await _supabase
-        .from(_invitesTable)
-        .select()
-        .eq('invite_code', trimmed)
-        .limit(1);
+        .rpc('peek_care_circle_invite', params: {'p_code': trimmed}) as List;
     if (rows.isEmpty) return null;
-    return CareCircleInvite.fromRow(rows.first);
+    return CareCircleInvite.fromRow(rows.first as Map<String, dynamic>);
   }
 
   // ── Accept (caregiver side) ──────────────────────────────────────────────
 
-  /// Accepts an invite as the currently-signed-in caregiver. RLS
-  /// independently re-checks the invite is pending & unexpired at insert
-  /// time, so this is safe even if the local check races with expiry.
+  /// Accepts an invite as the currently-signed-in caregiver.
+  ///
+  /// The whole redemption — validate the code, link the caregiver, consume
+  /// the invite — happens in one server-side function. Doing it client-side
+  /// could not be made safe: the caregiver has no policy that lets them mark
+  /// an invite accepted, so the old code's "mark accepted" UPDATE matched
+  /// zero rows and failed silently, leaving every invite live for its full
+  /// seven days.
+  ///
+  /// [caregiverId] is not sent. The function reads the caller's identity
+  /// from the JWT, so a tampered client cannot link a different account.
   Future<void> acceptInvite({
     required String code,
     required String caregiverId,
     required String caregiverDisplayName,
   }) async {
-    final invite = await lookupInvite(code);
-    if (invite == null || !invite.isPending) {
+    final trimmed = code.trim().toUpperCase();
+    if (trimmed.isEmpty) {
       throw Exception('This invite is invalid or has expired.');
     }
-    if (invite.patientId == caregiverId) {
-      throw Exception("You can't join your own care circle.");
+    try {
+      await _supabase.rpc(
+        'accept_care_circle_invite',
+        params: {
+          'p_code': trimmed,
+          'p_caregiver_display_name': caregiverDisplayName,
+        },
+      );
+    } on PostgrestException catch (e) {
+      // The function raises the patient-facing wording already; surface it
+      // rather than a generic failure.
+      throw Exception(e.message);
     }
-    await _supabase.from(_membersTable).insert({
-      'id': 'mem_${DateTime.now().microsecondsSinceEpoch}',
-      'patient_id': invite.patientId,
-      'patient_display_name': invite.patientDisplayName,
-      'caregiver_id': caregiverId,
-      'caregiver_display_name': caregiverDisplayName,
-      'status': 'active',
-    });
-    await _supabase
-        .from(_invitesTable)
-        .update({'status': 'accepted'}).eq('id', invite.id);
   }
 
   // ── Members (patient's own "My Circle" view) ─────────────────────────────

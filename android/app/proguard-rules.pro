@@ -28,3 +28,26 @@
 -dontwarn com.google.mediapipe.**
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
+
+# Scheduled reminders surviving a reboot (flutter_local_notifications).
+#
+# The plugin persists its pending notifications as JSON and reads them back
+# with Gson through a `TypeToken<ArrayList<NotificationDetails>>`. TypeToken
+# recovers the element type from the generic signature at runtime, and R8
+# drops those signatures by default — so the release build threw
+# "TypeToken must be created with a type argument" the moment
+# ScheduledNotificationBootReceiver fired, on every boot and every package
+# replace. The user saw a crash dialog; the real damage was that medication
+# reminders were never rescheduled after a restart.
+#
+# -keepattributes Signature is the load-bearing line. The rest keeps the
+# model classes Gson reflects over, and the TypeToken subclasses R8 would
+# otherwise merge away.
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+-dontwarn com.dexterous.flutterlocalnotifications.**
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken

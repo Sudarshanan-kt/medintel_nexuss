@@ -1,46 +1,51 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/route_names.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
+import '../../../shared/widgets/floating_medical_field.dart';
 import '../../../shared/widgets/google_logo.dart';
 import '../application/auth_controller.dart';
 import 'google_web_button.dart';
-import '../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local design tokens.
 //
-// This screen intentionally does NOT use AppColors: the sign-in experience has
-// its own mint/emerald identity (frosted-glass card over a pale clinical
-// backdrop), while the authenticated app stays on the blue AppColors brand.
-// Keeping them here means restyling this screen can never regress the rest of
-// the app's theme.
+// This screen deliberately keeps its own palette rather than reading the full
+// AppColors set: sign-in has a pale mint identity (mint motifs floating over
+// an almost-white wash, one white card) that the authenticated app doesn't
+// share. Only the brand green is pulled from AppColors, so a brand change
+// still lands here.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Color _bg = Color(0xFFF1F4F6);
 const Color _green = AppColors.primary;
-const Color _greenLight = Color(0xFF5FD6A4);
 const Color _greenDeep = AppColors.primaryDeep;
-const Color _ink = Color(0xFF1B2B33);
-const Color _muted = Color(0xFF7C8D96);
-const Color _fieldFill = Color(0xFFFBFCFC);
-const Color _fieldStroke = Color(0xFFE8EDF0);
-const Color _backdropTint = Color(0xFFB9D2E4);
+const Color _ink = Color(0xFF16232E);
+const Color _muted = Color(0xFF8496A0);
+const Color _fieldStroke = Color(0xFFE9EFF1);
+
+/// The card and its fields are deliberately translucent: the motifs drifting
+/// underneath stay visible through them, which is the whole point of the
+/// floating field. Pushed much past this and the form text starts competing
+/// with whatever passes behind it.
+const Color _cardFill = Color(0xB5FFFFFF); // white @ 71%
+const Color _fieldFill = Color(0x8CFFFFFF); // white @ 55%
+
+/// The wash behind everything: near-white, with the faintest mint lift at the
+/// top and bottom so the card has something to sit on.
+const LinearGradient _pageWash = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [Color(0xFFEDF6F2), Color(0xFFF7FBFA), Color(0xFFEAF4F0)],
+  stops: [0, 0.45, 1],
+);
 
 /// Violet, matching the caregiver side of the app — the link to it should
 /// look like where it leads, not like the rest of this screen.
 const Color _caregiverAccent = Color(0xFF7C5CFC);
-
-const LinearGradient _brandGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [_greenLight, _greenDeep],
-);
 
 /// Full Sign In screen backed by Supabase Auth.
 ///
@@ -62,7 +67,6 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscure = true;
-  bool _rememberMe = true;
   String? _errorMessage;
 
   @override
@@ -126,245 +130,353 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
     final isLoading = auth.isLoading;
 
     return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _MedicalBackdrop()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-
-                  const _BrandLogo(),
-                  const SizedBox(height: 18),
-                  const _BrandWordmark(),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Smart Care. Better Life.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _muted,
-                      height: 1.3,
-                    ),
-                  ),
-
-                  const SizedBox(height: 34),
-
-                  _GlassCard(
-                    child: Form(
-                      key: _formKey,
+      // SizedBox.expand matters: the Stack below sizes itself to the scroll
+      // content, which is shorter than the screen on a tall phone. Without
+      // it the wash (and the motif field) stop above the bottom edge and the
+      // Scaffold's own grey shows through underneath.
+      body: SizedBox.expand(
+        child: DecoratedBox(
+          decoration: const BoxDecoration(gradient: _pageWash),
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: FloatingMedicalField(
+                  specs: FloatingMedicalField.defaultSignInField,
+                ),
+              ),
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+                    child: ConstrainedBox(
+                      // Fill the viewport (minus the padding above) so the
+                      // column has room to centre itself; the slack then
+                      // splits evenly above and below instead of all
+                      // collecting at the bottom. When the content is taller
+                      // than the screen — keyboard up, or an error banner
+                      // showing — this does nothing and it simply scrolls.
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 32,
+                      ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            'Welcome Back',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              color: _ink,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Sign in to continue to your account',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, color: _muted),
-                          ),
-                          const SizedBox(height: 26),
-
-                          if (_errorMessage != null) ...[
-                            _ErrorBanner(message: _errorMessage!),
-                            const SizedBox(height: 18),
-                          ],
-
-                          _PillField(
-                            controller: _email,
-                            hint: 'Email Address',
-                            icon: Icons.mail_outline_rounded,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: Validators.email,
-                            enabled: !isLoading,
-                          ),
-                          const SizedBox(height: 16),
-
-                          _PillField(
-                            controller: _password,
-                            hint: 'Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscureText: _obscure,
-                            validator: Validators.password,
-                            enabled: !isLoading,
-                            trailing: IconButton(
-                              splashRadius: 20,
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                size: 21,
-                                color: _muted,
-                              ),
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                            ),
-                          ),
-
-                          const SizedBox(height: 14),
-                          _RememberRow(
-                            value: _rememberMe,
-                            onChanged: (v) => setState(() => _rememberMe = v),
-                            onForgot: isLoading
-                                ? null
-                                : () => context.go(Routes.forgotPassword),
-                          ),
-
+                          const _BrandBlock(),
                           const SizedBox(height: 22),
-                          _GradientButton(
-                            label: 'Log In',
-                            isLoading: isLoading,
-                            onPressed: isLoading ? null : _submit,
+                          // The card is inset well past the page padding so the
+                          // motifs on either side stay in open space rather than
+                          // disappearing behind it — they're meant to frame it.
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: _SignInCard(
+                              formKey: _formKey,
+                              email: _email,
+                              password: _password,
+                              obscure: _obscure,
+                              isLoading: isLoading,
+                              errorMessage: _errorMessage,
+                              onToggleObscure: () =>
+                                  setState(() => _obscure = !_obscure),
+                              onSubmit: isLoading ? null : _submit,
+                              onForgot: isLoading
+                                  ? null
+                                  : () => context.go(Routes.forgotPassword),
+                              onSignUp: isLoading
+                                  ? null
+                                  : () => context.go(Routes.signUp),
+                              onGoogle: isLoading ? null : _googleSignIn,
+                              onGoogleWeb: _googleWebSignedIn,
+                              onApple: isLoading ? null : _appleSignIn,
+                            ),
                           ),
 
-                          const SizedBox(height: 24),
-                          const _OrDivider(),
-                          const SizedBox(height: 20),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _SocialButton(
-                                // Web can't use the tap-to-signIn() flow
-                                // reliably (see GoogleWebButton's doc) — it
-                                // renders Google's own button as the child
-                                // instead, which handles its own clicks.
-                                onTap:
-                                    kIsWeb ? null : (isLoading ? null : _googleSignIn),
-                                child: kIsWeb
-                                    ? GoogleWebButton(
-                                        size: 44,
-                                        onSignedIn: _googleWebSignedIn,
-                                      )
-                                    : const GoogleLogo(size: 26),
+                          // The other door. Someone looking after a parent has no
+                          // reason to guess that this screen would work for them,
+                          // so the caregiver side is named explicitly.
+                          const SizedBox(height: 4),
+                          TextButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () => context.go(Routes.caregiverSignIn),
+                            icon: const Icon(
+                              Icons.volunteer_activism_rounded,
+                              size: 17,
+                              color: _caregiverAccent,
+                            ),
+                            label: const Text(
+                              "I'm caring for someone else",
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: _caregiverAccent,
                               ),
-                              const SizedBox(width: 18),
-                              _SocialButton(
-                                onTap: isLoading ? null : _appleSignIn,
-                                child: const Icon(
-                                  Icons.apple,
-                                  size: 30,
-                                  color: Color(0xFF111111),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
+
+                          const SizedBox(height: 10),
+                          const _TrustFooter(),
                         ],
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 30),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Don't have an account?",
-                        style: TextStyle(fontSize: 14, color: _muted),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap:
-                            isLoading ? null : () => context.go(Routes.signUp),
-                        child: const Text(
-                          'Sign Up',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: _green,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // The other door. Someone looking after a parent has no
-                  // reason to guess that this screen would work for them,
-                  // so the caregiver side is named explicitly.
-                  const SizedBox(height: 6),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: isLoading
-                          ? null
-                          : () => context.go(Routes.caregiverSignIn),
-                      icon: const Icon(
-                        Icons.volunteer_activism_rounded,
-                        size: 17,
-                        color: _caregiverAccent,
-                      ),
-                      label: const Text(
-                        "I'm caring for someone else",
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: _caregiverAccent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Backdrop — pale, frosted medical iconography scattered behind the content.
-// Purely decorative, so it's wrapped in IgnorePointer + ExcludeSemantics.
+// Brand block — icon, wordmark, tagline.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MedicalBackdrop extends StatelessWidget {
-  const _MedicalBackdrop();
-
-  static const List<(Alignment, IconData, double, double, double)> _items = [
-    // (alignment, icon, size, opacity, rotation-turns)
-    (Alignment(-0.78, -0.92), Icons.medical_services_outlined, 86, .30, -.05),
-    (Alignment(0.02, -0.86), Icons.favorite_rounded, 96, .22, .04),
-    (Alignment(0.55, -0.90), Icons.medication_rounded, 74, .26, .10),
-    (Alignment(0.92, -0.88), Icons.biotech_rounded, 78, .24, -.03),
-    (Alignment(-0.95, -0.66), Icons.add_rounded, 72, .26, 0),
-    (Alignment(-0.42, -0.70), Icons.monitor_heart_outlined, 92, .24, 0),
-    (Alignment(0.80, -0.60), Icons.content_paste_rounded, 80, .24, .03),
-    (Alignment(0.95, -0.38), Icons.apartment_rounded, 88, .26, 0),
-    (Alignment(-0.92, -0.10), Icons.vaccines_rounded, 92, .26, -.08),
-    (Alignment(0.96, 0.02), Icons.water_drop_rounded, 62, .20, 0),
-    (Alignment(-0.90, 0.62), Icons.medication_liquid_rounded, 82, .26, -.04),
-    (Alignment(0.88, 0.70), Icons.science_outlined, 84, .26, .05),
-    (Alignment(-0.30, 0.95), Icons.medication_rounded, 66, .22, .12),
-    (Alignment(0.30, 0.92), Icons.bloodtype_outlined, 58, .18, 0),
-  ];
+class _BrandBlock extends StatelessWidget {
+  const _BrandBlock();
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ExcludeSemantics(
-        child: Stack(
+    return Column(
+      children: [
+        // The real launcher icon, so the screen matches the tile the user
+        // tapped to get here.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: _greenDeep.withValues(alpha: 0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Image.asset(
+              'assets/branding/app_icon.png',
+              width: 76,
+              height: 76,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'MedIntel',
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            color: _ink,
+            letterSpacing: -0.8,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            for (final (align, icon, size, opacity, turns) in _items)
-              Align(
-                alignment: align,
-                child: Transform.rotate(
-                  angle: turns * 6.2831853,
-                  child: Icon(
-                    icon,
-                    size: size,
-                    color: _backdropTint.withValues(alpha: opacity),
+            SparkleMark(size: 13, color: _green),
+            SizedBox(width: 8),
+            Text(
+              'NEXUS',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: _green,
+                letterSpacing: 5.5,
+                height: 1.1,
+              ),
+            ),
+            SizedBox(width: 3),
+            SparkleMark(size: 13, color: _green),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Smarter Healthcare, Better Life.',
+          style: TextStyle(fontSize: 14, color: _muted, height: 1.3),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SignInCard extends StatelessWidget {
+  const _SignInCard({
+    required this.formKey,
+    required this.email,
+    required this.password,
+    required this.obscure,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.onToggleObscure,
+    required this.onSubmit,
+    required this.onForgot,
+    required this.onSignUp,
+    required this.onGoogle,
+    required this.onGoogleWeb,
+    required this.onApple,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final TextEditingController email;
+  final TextEditingController password;
+  final bool obscure;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback onToggleObscure;
+  final VoidCallback? onSubmit;
+  final VoidCallback? onForgot;
+  final VoidCallback? onSignUp;
+  final VoidCallback? onGoogle;
+  final ValueChanged<GoogleWebCredential> onGoogleWeb;
+  final VoidCallback? onApple;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _cardFill,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.65)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E5E52).withValues(alpha: 0.09),
+            blurRadius: 34,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Welcome Back!',
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Sign in to continue',
+              style: TextStyle(fontSize: 14.5, color: _muted),
+            ),
+            const SizedBox(height: 22),
+            if (errorMessage != null) ...[
+              _ErrorBanner(message: errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            _Field(
+              controller: email,
+              hint: 'Email Address',
+              icon: Icons.person_outline_rounded,
+              keyboardType: TextInputType.emailAddress,
+              validator: Validators.email,
+              enabled: !isLoading,
+            ),
+            const SizedBox(height: 14),
+            _Field(
+              controller: password,
+              hint: 'Password',
+              icon: Icons.lock_outline_rounded,
+              obscureText: obscure,
+              validator: Validators.password,
+              enabled: !isLoading,
+              trailing: IconButton(
+                splashRadius: 20,
+                icon: Icon(
+                  obscure
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 20,
+                  color: _muted,
+                ),
+                onPressed: onToggleObscure,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: onForgot,
+                child: const Text(
+                  'Forgot Password?',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: _green,
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 18),
+            _LoginButton(isLoading: isLoading, onPressed: onSubmit),
+            const SizedBox(height: 20),
+            const _OrDivider(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _SocialButton(
+                    // Web can't use the tap-to-signIn() flow reliably (see
+                    // GoogleWebButton's doc) — it renders Google's own button
+                    // as the child instead, which handles its own clicks.
+                    onTap: kIsWeb ? null : onGoogle,
+                    icon: kIsWeb
+                        ? GoogleWebButton(size: 22, onSignedIn: onGoogleWeb)
+                        : const GoogleLogo(size: 20),
+                    label: 'Google',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SocialButton(
+                    onTap: onApple,
+                    icon: const Icon(
+                      Icons.apple,
+                      size: 24,
+                      color: Color(0xFF111111),
+                    ),
+                    label: 'Apple',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'New to MedIntel Nexus?',
+                  style: TextStyle(fontSize: 13.5, color: _muted),
+                ),
+                const SizedBox(width: 5),
+                GestureDetector(
+                  onTap: onSignUp,
+                  child: const Text(
+                    'Sign Up',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: _green,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -373,150 +485,28 @@ class _MedicalBackdrop extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Brand
+// Card internals
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Medical cross built from two rounded bars under a gradient shader, with a
-/// white leaf tucked into the lower-right quadrant — drawn rather than shipped
-/// as an asset so it stays crisp at any density.
-class _BrandLogo extends StatelessWidget {
-  const _BrandLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 116,
-      height: 116,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          ShaderMask(
-            blendMode: BlendMode.srcIn,
-            shaderCallback: (r) => _brandGradient.createShader(r),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _bar(width: 40, height: 112),
-                _bar(width: 112, height: 40),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 14,
-            bottom: 16,
-            child: Transform.rotate(
-              angle: -0.35,
-              child: const Icon(
-                Icons.eco_rounded,
-                size: 52,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bar({required double width, required double height}) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-      );
-}
-
-class _BrandWordmark extends StatelessWidget {
-  const _BrandWordmark();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: 'MedIntel ',
-            style: TextStyle(color: _ink),
-          ),
-          TextSpan(
-            text: 'Nexus',
-            style: TextStyle(color: _green),
-          ),
-        ],
-      ),
-      style: TextStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.6,
-        height: 1.1,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Frosted card
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(34),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(34),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.85),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.textMuted.withValues(alpha: 0.16),
-                blurRadius: 40,
-                offset: const Offset(0, 18),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Form primitives
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PillField extends StatelessWidget {
-  const _PillField({
+class _Field extends StatelessWidget {
+  const _Field({
     required this.controller,
     required this.hint,
     required this.icon,
-    this.trailing,
     this.obscureText = false,
     this.keyboardType,
     this.validator,
+    this.trailing,
     this.enabled = true,
   });
 
   final TextEditingController controller;
   final String hint;
   final IconData icon;
-  final Widget? trailing;
   final bool obscureText;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final Widget? trailing;
   final bool enabled;
 
   @override
@@ -527,163 +517,95 @@ class _PillField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       enabled: enabled,
-      style: const TextStyle(fontSize: 16, color: _ink),
+      style: const TextStyle(fontSize: 15, color: _ink),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(fontSize: 16, color: _muted),
-        filled: true,
-        fillColor: _fieldFill,
-        contentPadding: const EdgeInsets.symmetric(vertical: 19),
+        hintStyle: const TextStyle(fontSize: 15, color: _muted),
         prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 20, right: 14),
-          child: Icon(icon, size: 23, color: _green),
+          padding: const EdgeInsets.only(left: 14, right: 10),
+          child: Icon(icon, size: 21, color: _green),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         suffixIcon: trailing,
+        filled: true,
+        fillColor: _fieldFill,
+        contentPadding: const EdgeInsets.symmetric(vertical: 17),
         border: _border(_fieldStroke),
         enabledBorder: _border(_fieldStroke),
-        focusedBorder: _border(_green.withValues(alpha: 0.55), width: 1.6),
-        errorBorder: _border(const Color(0xFFE57373)),
-        focusedErrorBorder: _border(const Color(0xFFE57373), width: 1.6),
+        focusedBorder: _border(_green, width: 1.4),
+        errorBorder: _border(const Color(0xFFEF4444)),
+        focusedErrorBorder: _border(const Color(0xFFEF4444), width: 1.4),
       ),
     );
   }
 
-  OutlineInputBorder _border(Color color, {double width = 1.2}) =>
-      OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30),
-        borderSide: BorderSide(color: color, width: width),
+  OutlineInputBorder _border(Color c, {double width = 1}) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: c, width: width),
       );
 }
 
-class _RememberRow extends StatelessWidget {
-  const _RememberRow({
-    required this.value,
-    required this.onChanged,
-    required this.onForgot,
-  });
+class _LoginButton extends StatelessWidget {
+  const _LoginButton({required this.isLoading, required this.onPressed});
 
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback? onForgot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => onChanged(!value),
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                width: 21,
-                height: 21,
-                decoration: BoxDecoration(
-                  color: value ? _green : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: value ? _green : const Color(0xFFC3D0D7),
-                    width: 1.6,
-                  ),
-                ),
-                child: value
-                    ? const Icon(
-                        Icons.check_rounded,
-                        size: 15,
-                        color: Colors.white,
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Remember me',
-                style: TextStyle(fontSize: 14, color: _muted),
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: onForgot,
-          child: const Text(
-            'Forgot Password?',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: _green,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({
-    required this.label,
-    required this.onPressed,
-    this.isLoading = false,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
   final bool isLoading;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null && !isLoading;
-    return GestureDetector(
-      onTap: enabled ? onPressed : null,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 150),
-        opacity: enabled ? 1 : 0.65,
-        child: Container(
-          height: 62,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: _brandGradient,
-            borderRadius: BorderRadius.circular(31),
-            boxShadow: [
-              BoxShadow(
-                color: _green.withValues(alpha: 0.42),
-                blurRadius: 26,
-                spreadRadius: -2,
-                offset: const Offset(0, 12),
-              ),
-            ],
+    return SizedBox(
+      height: 54,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [_green, _greenDeep],
           ),
-          child: Center(
-            child: isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+          boxShadow: [
+            BoxShadow(
+              color: _greenDeep.withValues(alpha: 0.32),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(15),
+            onTap: onPressed,
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 19,
                           color: Colors.white,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 21,
-                        color: Colors.white,
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -696,47 +618,63 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: [
-        Expanded(child: Container(height: 1, color: AppColors.outline)),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14),
+        Expanded(child: Divider(color: _fieldStroke, thickness: 1)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'or continue with',
             style: TextStyle(fontSize: 13, color: _muted),
           ),
         ),
-        Expanded(child: Container(height: 1, color: AppColors.outline)),
+        Expanded(child: Divider(color: _fieldStroke, thickness: 1)),
       ],
     );
   }
 }
 
 class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.child, required this.onTap});
-  final Widget child;
+  const _SocialButton({
+    required this.onTap,
+    required this.icon,
+    required this.label,
+  });
+
   final VoidCallback? onTap;
+  final Widget icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 104,
-        height: 78,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.textMuted.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+    return Material(
+      color: _fieldFill,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _fieldStroke),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              icon,
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: _ink,
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Center(child: child),
       ),
     );
   }
@@ -748,27 +686,67 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const danger = Color(0xFFD64545);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: danger.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: danger.withValues(alpha: 0.25)),
+        color: const Color(0xFFFDECEC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF6C9C9)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded, size: 18, color: danger),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 19,
+            color: Color(0xFFDC2626),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 13.5, color: danger),
+              style: const TextStyle(fontSize: 13, color: Color(0xFFB91C1C)),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Footer
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TrustFooter extends StatelessWidget {
+  const _TrustFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.verified_user_rounded, size: 14, color: _green),
+            const SizedBox(width: 6),
+            Text(
+              'Your data is safe and secure',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: _muted.withValues(alpha: 0.95),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'We follow HIPAA compliant standards',
+          style: TextStyle(
+            fontSize: 12.5,
+            color: _muted.withValues(alpha: 0.8),
+          ),
+        ),
+      ],
     );
   }
 }

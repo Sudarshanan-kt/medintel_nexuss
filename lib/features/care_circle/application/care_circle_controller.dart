@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../reminders/adherence_controller.dart';
 import '../../reminders/data/medicines_repository.dart';
+import '../../reminders/domain/medicine.dart';
 import '../data/care_circle_repository.dart';
 import '../domain/care_circle_models.dart';
 
@@ -11,9 +12,30 @@ import '../domain/care_circle_models.dart';
 /// patient's own device would (computeAdherenceState) but from remotely
 /// fetched dose logs, readable via the additive RLS policy.
 class LinkedPatientView {
-  const LinkedPatientView({required this.member, required this.adherence});
+  const LinkedPatientView({
+    required this.member,
+    required this.adherence,
+    this.logs = const [],
+    this.medicines = const [],
+  });
+
   final CareCircleMember member;
   final AdherenceState adherence;
+
+  /// The raw logs the adherence figure was computed from, newest first.
+  ///
+  /// Kept on the view so the detail screen can answer "which dose, and
+  /// when?" without a second round trip — the dashboard has already paid
+  /// for this data, and a caregiver who taps a worrying percentage should
+  /// not then wait on a spinner to find out what caused it.
+  final List<DoseLog> logs;
+
+  /// The patient's current regimen, readable via the additive RLS policy.
+  final List<Medicine> medicines;
+
+  /// Doses that were logged as missed, newest first.
+  List<DoseLog> get missedDoses =>
+      logs.where((l) => l.isMissed).toList(growable: false);
 }
 
 class CareCircleState {
@@ -69,19 +91,17 @@ class CareCircleController extends Notifier<CareCircleState> {
     if (uid == null) return;
     state = state.copyWith(loading: true, error: null);
     try {
-      final caregivers = await _repo.listMyCaregivers(uid);
-      final members = await _repo.listLinkedPatients(uid);
+      final (caregivers, members) = await (
+        _repo.listMyCaregivers(uid),
+        _repo.listLinkedPatients(uid),
+      ).wait;
 
-      final views = <LinkedPatientView>[];
-      for (final m in members) {
-        final logs = await _medsRepo.fetchAllDoseLogs(m.patientId);
-        views.add(
-          LinkedPatientView(
-            member: m,
-            adherence: computeAdherenceState(logs),
-          ),
-        );
-      }
+      // Fetched concurrently. Sequentially this was two round trips per
+      // patient, serialised — a caregiver looking after three people paid
+      // six in a row before the screen showed anything.
+      final views = await Future.wait([
+        for (final m in members) _loadPatient(m),
+      ]);
 
       state = state.copyWith(
         myCaregivers: caregivers,
@@ -89,11 +109,42 @@ class CareCircleController extends Notifier<CareCircleState> {
         loading: false,
       );
     } catch (_) {
+      // Deliberately clears the stale patient list rather than leaving last
+      // refresh's numbers on screen. An adherence figure with no timestamp
+      // is indistinguishable from a current one, and the screen exists to
+      // be trusted at a glance.
       state = state.copyWith(
+        linkedPatients: const [],
         loading: false,
         error: 'Could not load your care circle. Check your connection.',
       );
     }
+  }
+
+  /// One patient's adherence picture. Throws if either fetch fails, so
+  /// [refresh] can tell a real failure from an empty circle.
+  Future<LinkedPatientView> _loadPatient(CareCircleMember m) async {
+    final (logs, medicines) = await (
+      _medsRepo.fetchDoseLogsOrThrow(m.patientId),
+      _medsRepo.fetchMedicinesOrThrow(m.patientId),
+    ).wait;
+
+    return LinkedPatientView(
+      member: m,
+      adherence: computeAdherenceState(logs),
+      logs: logs,
+      medicines: medicines,
+    );
+  }
+
+  /// The linked patient with this id, or null if the caregiver is no longer
+  /// linked to them — which is what a revoked link looks like after a
+  /// refresh, and the detail screen has to handle it without crashing.
+  LinkedPatientView? patientById(String patientId) {
+    for (final p in state.linkedPatients) {
+      if (p.member.patientId == patientId) return p;
+    }
+    return null;
   }
 
   /// Creates a new invite and returns the shareable code.

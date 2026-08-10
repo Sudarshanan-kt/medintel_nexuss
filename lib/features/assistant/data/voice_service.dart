@@ -153,7 +153,7 @@ class VoiceService {
       final voicesRaw = await _tts.getVoices;
       if (voicesRaw is! List) return;
       final voices = voicesRaw
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map((v) => v.map((k, val) => MapEntry(k.toString(), val.toString())))
           .toList();
 

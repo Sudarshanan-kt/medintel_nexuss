@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../data/demo_lab_report.dart';
-import '../data/demo_ocr_cache.dart';
+import '../domain/report_analysis.dart';
 import '../data/report_analysis_repository.dart';
 import '../data/reports_repository.dart';
 import '../data/rx_local_store.dart';
@@ -146,14 +145,12 @@ class ReportsController extends Notifier<List<MedicalReport>> {
 
   /// Registers a new upload and kicks off the analysis pipeline.
   ///
-  /// [fileName] is the original picked file name (used for demo-cache stem
-  /// matching). [sha256] is the hex SHA256 of the image bytes (used for
-  /// persistent local-store matching on re-upload of the same file).
+  /// [sha256] is the hex SHA256 of the image bytes, used to reuse an
+  /// analysis this device already computed for the same file.
   void addUpload({
     required String title,
     required ReportType type,
     String? fileRef,
-    String? fileName,
     String? sha256,
   }) {
     final id = 'r_${DateTime.now().microsecondsSinceEpoch}';
@@ -167,26 +164,7 @@ class ReportsController extends Notifier<List<MedicalReport>> {
       sha256: sha256,
     );
     state = [report, ...state];
-    _analyze(id, fileName: fileName, sha256: sha256);
-  }
-
-
-  /// Re-applies a [DemoOcrResult] to an existing report after the user links
-  /// it to a pre-registered prescription entry via the "Link" card.
-  Future<void> linkDemoResult(String reportId, DemoOcrResult result) async {
-    final report = _getById(reportId);
-    if (report == null) return;
-
-    if (report.sha256 != null) {
-      await ref.read(rxLocalStoreProvider).link(report.sha256!, result);
-    }
-
-    final updated = _applyResult(report, result, isDemoMatched: true);
-    state = [
-      for (final r in state) if (r.id == reportId) updated else r,
-    ];
-    _persistLocal();
-    _upsertRemote(updated);
+    _analyze(id, sha256: sha256);
   }
 
   /// Renames a report and persists both locally and to Supabase.
@@ -225,14 +203,25 @@ class ReportsController extends Notifier<List<MedicalReport>> {
 
   // ── Internal analysis pipeline ────────────────────────────────────────────
 
+  /// Budget for the *cached* lookup below, which is local and should be
+  /// quick or not at all.
   static const _overallDeadline = Duration(seconds: 12);
 
-  Future<void> _analyze(
-    String id, {
-    String? fileName,
-    String? sha256,
-  }) async {
-    _log('START id=$id fileName=$fileName sha256=${sha256?.substring(0, 8)}…');
+  /// Budget for the real backend pipeline, which is a different order of
+  /// magnitude: Tesseract (or a PDF text layer) plus a 7B model generating
+  /// a full JSON analysis on the user's own machine. Measured at ~50-60s
+  /// for a clean printed panel and longer for a phone photo.
+  ///
+  /// This used to reuse [_overallDeadline], so real analysis was abandoned
+  /// after 12 seconds — before the model could *ever* answer — and every
+  /// genuine report fell through to the cached path, found nothing, and
+  /// rendered "No structured data extracted". It must stay at or above
+  /// `ReportAnalysisRepository`'s own polling ceiling (~3 min), or the
+  /// client gives up while the server is still working.
+  static const _realAnalysisDeadline = Duration(minutes: 4);
+
+  Future<void> _analyze(String id, {String? sha256}) async {
+    _log('START id=$id sha256=${sha256?.substring(0, 8)}…');
 
     await Future<void>.delayed(const Duration(milliseconds: 900));
     _setStatus(id, ReportStatus.processing);
@@ -242,10 +231,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     // backend's OCR+LLM pipeline (see report_analysis_repository.dart).
     // Only lab reports go through it (the structuring prompt is written
     // for lab-value tables specifically); imaging/discharge/prescription
-    // reports still use the demo/synthetic path below. Falls through to
-    // that same path if the backend is unreachable or genuinely can't
-    // read the image — never silently swapped for fake data when the
-    // real attempt simply hasn't returned yet.
+    // reports fall through to any cached result below. Nothing is ever
+    // swapped for fabricated data when the real attempt fails.
     final report = _getById(id);
     final imagePath = report?.fileRef;
     if (imagePath != null && report!.type == ReportType.lab) {
@@ -254,30 +241,30 @@ class ReportsController extends Notifier<List<MedicalReport>> {
         _finishReal(id, outcome);
         return;
       }
-      _log('real analysis unavailable — falling back to demo/synthetic path');
+      _log('real analysis unavailable — falling back to any cached result');
     }
 
-    DemoOcrResult? demo;
+    ReportAnalysis? cached;
     var fromLocalStore = false;
 
     try {
-      final resolved = await _resolve(id, fileName, sha256).timeout(
+      final resolved = await _resolve(id, sha256).timeout(
         _overallDeadline,
         onTimeout: () {
           _log('OVERALL DEADLINE hit — finishing without a match');
           return (null, false);
         },
       );
-      demo = resolved.$1;
+      cached = resolved.$1;
       fromLocalStore = resolved.$2;
 
       await Future<void>.delayed(const Duration(seconds: 2));
 
-      if (demo != null && sha256 != null && !fromLocalStore) {
+      if (cached != null && sha256 != null && !fromLocalStore) {
         unawaited(
           ref
               .read(rxLocalStoreProvider)
-              .persist(sha256, demo)
+              .persist(sha256, cached)
               .timeout(const Duration(seconds: 4))
               .catchError((Object e) => _log('persist ERROR: $e')),
         );
@@ -285,19 +272,19 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     } catch (e, st) {
       _log('UNEXPECTED ERROR: $e\n$st');
     } finally {
-      _finish(id, demo);
+      _finish(id, cached);
     }
   }
 
   /// Attempts the real backend pipeline; returns null on any failure
   /// (network error, timeout, or the backend genuinely couldn't read the
-  /// image) so the caller falls back to the demo/synthetic path.
+  /// image) so the caller falls back to any cached result.
   Future<ReportAnalysisOutcome?> _tryRealAnalysis(String imagePath) async {
     try {
       final result = await ref
           .read(reportAnalysisRepositoryProvider)
           .analyzeReport(imagePath: imagePath)
-          .timeout(_overallDeadline);
+          .timeout(_realAnalysisDeadline);
       return result.when(
         success: (outcome) => outcome,
         failure: (failure) {
@@ -335,52 +322,34 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     _upsertRemote(finished);
   }
 
-  Future<(DemoOcrResult?, bool)> _resolve(
-    String id,
-    String? fileName,
-    String? sha256,
-  ) async {
-    DemoOcrResult? demo;
-    var fromLocalStore = false;
+  /// Looks for an analysis this device has already computed for the same
+  /// file, keyed by content hash.
+  ///
+  /// There used to be a second step here: a bundled cache of pre-extracted
+  /// answers for a handful of cached files, matched on filename. If you
+  /// uploaded one of those, the app showed the canned analysis as though it
+  /// had read your document. It's gone — a report is analysed for real or
+  /// the screen says it couldn't be.
+  Future<(ReportAnalysis?, bool)> _resolve(String id, String? sha256) async {
+    if (sha256 == null) return (null, false);
 
-    if (sha256 != null) {
-      try {
-        demo = await ref.read(rxLocalStoreProvider).lookup(sha256).timeout(
-          const Duration(seconds: 4),
-          onTimeout: () {
-            _log('rxLocalStore.lookup TIMED OUT');
-            return null;
-          },
-        );
-        if (demo != null) fromLocalStore = true;
-        _log('localStore hit=${demo != null}');
-      } catch (e) {
-        _log('localStore ERROR: $e');
-      }
+    try {
+      final cached = await ref.read(rxLocalStoreProvider).lookup(sha256).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          _log('rxLocalStore.lookup TIMED OUT');
+          return null;
+        },
+      );
+      _log('localStore hit=${cached != null}');
+      return (cached, cached != null);
+    } catch (e) {
+      _log('localStore ERROR: $e');
+      return (null, false);
     }
-
-    if (demo == null) {
-      try {
-        demo = await ref
-            .read(demoOcrCacheProvider)
-            .lookup(fileName: fileName, sha256: sha256)
-            .timeout(
-          const Duration(seconds: 4),
-          onTimeout: () {
-            _log('demoOcrCache.lookup TIMED OUT');
-            return null;
-          },
-        );
-        _log('demoCache hit=${demo != null} title=${demo?.title}');
-      } catch (e) {
-        _log('demoCache ERROR: $e');
-      }
-    }
-
-    return (demo, fromLocalStore);
   }
 
-  void _finish(String id, DemoOcrResult? demo) {
+  void _finish(String id, ReportAnalysis? cached) {
     final report = _getById(id);
     if (report == null) {
       _log('report GONE before apply — nothing to finish');
@@ -395,17 +364,17 @@ class ReportsController extends Notifier<List<MedicalReport>> {
       // fabricated HbA1c has no way to tell it from a real one, and might
       // act on it. An honest "couldn't read this" is always better than a
       // confident wrong number.
-      finished = demo != null
-          ? _applyResult(report, demo, isDemoMatched: true)
+      finished = cached != null
+          ? _applyResult(report, cached, fromCache: true)
           : report.copyWith(status: ReportStatus.failed);
 
       state = [
         for (final r in state) if (r.id == id) finished else r,
       ];
-      _log('DONE status=analyzed matched=${demo != null} '
-          'metrics=${demo?.metrics.length ?? 0} '
-          'findings=${demo?.findings.length ?? 0} '
-          'insights=${demo?.insights.length ?? 0}');
+      _log('DONE status=analyzed matched=${cached != null} '
+          'metrics=${cached?.metrics.length ?? 0} '
+          'findings=${cached?.findings.length ?? 0} '
+          'insights=${cached?.insights.length ?? 0}');
     } catch (e, st) {
       _log('APPLY ERROR: $e\n$st — falling back to empty analyzed');
       finished = report.copyWith(status: ReportStatus.analyzed);
@@ -419,25 +388,25 @@ class ReportsController extends Notifier<List<MedicalReport>> {
 
   MedicalReport _applyResult(
     MedicalReport r,
-    DemoOcrResult demo, {
-    bool isDemoMatched = false,
+    ReportAnalysis cached, {
+    bool fromCache = false,
   }) =>
       MedicalReport(
         id: r.id,
         type: r.type,
-        title: demo.title,
+        title: cached.title,
         uploadedAt: r.uploadedAt,
         status: ReportStatus.analyzed,
         fileRef: r.fileRef,
         sha256: r.sha256,
-        isDemoMatched: isDemoMatched,
-        summary: demo.summary,
-        metrics: demo.metrics,
-        findings: demo.findings,
-        hasRiskFinding: demo.hasRisk || demo.metrics.any((m) => m.isOutOfRange),
-        medicines: demo.medicines,
-        insights: demo.insights,
-        ocrConfidence: demo.confidence,
+        fromCache: fromCache,
+        summary: cached.summary,
+        metrics: cached.metrics,
+        findings: cached.findings,
+        hasRiskFinding: cached.hasRisk || cached.metrics.any((m) => m.isOutOfRange),
+        medicines: cached.medicines,
+        insights: cached.insights,
+        ocrConfidence: cached.confidence,
       );
 
   void _setStatus(String id, ReportStatus status) {

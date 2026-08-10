@@ -1,40 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/route_names.dart';
 import '../../auth/application/auth_controller.dart';
 import '../application/care_circle_controller.dart';
-import '../application/care_task_controller.dart';
-import '../domain/care_circle_models.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Caregiver identity — violet, matching the caregiver sign-in screen.
-//
-// The whole point of the colour split is that someone who looks after a
-// parent can tell at a glance whose data they're looking at. Kept local for
-// the same reason the patient dashboard keeps its mint tokens local.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const Color _bg = Color(0xFFF4F1FC);
-const Color _violet = Color(0xFF7C5CFC);
-const Color _violetLight = Color(0xFFB6A4FF);
-const Color _violetDeep = Color(0xFF5B3FD9);
-const Color _violetSoft = Color(0xFFEEE9FE);
-const Color _ink = Color(0xFF241E3B);
-const Color _muted = Color(0xFF7C748F);
-const Color _card = Colors.white;
-const Color _cardStroke = Color(0xFFEBE6F7);
-const Color _amber = Color(0xFFEA9C1A);
-const Color _red = Color(0xFFE0554B);
-const Color _greenOk = Color(0xFF12A97D);
-
-const LinearGradient _caregiverGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [_violetLight, _violetDeep],
-);
+import 'care_task_board.dart';
+import 'caregiver_theme.dart';
 
 /// Home for someone looking after other people.
 ///
@@ -54,14 +26,14 @@ class CaregiverDashboardScreen extends ConsumerWidget {
     final patients = circle.linkedPatients;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: kBg,
       body: Stack(
         children: [
           const Positioned.fill(child: _CareBackdrop()),
           SafeArea(
             bottom: false,
             child: RefreshIndicator(
-              color: _violet,
+              color: kViolet,
               onRefresh: () =>
                   ref.read(careCircleControllerProvider.notifier).refresh(),
               child: ListView(
@@ -75,6 +47,19 @@ class CaregiverDashboardScreen extends ConsumerWidget {
 
                   if (circle.loading && patients.isEmpty)
                     const _LoadingBlock()
+                  // Checked before the empty case, and this is the whole
+                  // point of the ordering: a failed load used to fall
+                  // through to "You're not caring for anyone yet", which
+                  // tells a caregiver their circle is empty when in fact
+                  // the app has no idea. Silence about a patient must never
+                  // be presented as good news.
+                  else if (circle.error != null)
+                    _LoadFailedCard(
+                      message: circle.error!,
+                      onRetry: () => ref
+                          .read(careCircleControllerProvider.notifier)
+                          .refresh(),
+                    )
                   else if (patients.isEmpty)
                     const _NoPatientsCard()
                   else ...[
@@ -92,13 +77,20 @@ class CaregiverDashboardScreen extends ConsumerWidget {
                     const _SectionLabel('Care tasks'),
                     const SizedBox(height: 12),
                     for (final p in patients)
-                      _CareTasksBlock(patient: p),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: CareTaskBoard(
+                          patientId: p.member.patientId,
+                          patientName: p.member.patientDisplayName,
+                          title: 'For ${p.member.patientDisplayName}',
+                        ),
+                      ),
                   ],
 
                   const SizedBox(height: 22),
                   const _SectionLabel('Quick actions'),
                   const SizedBox(height: 12),
-                  _QuickActions(hasPatients: patients.isNotEmpty),
+                  _QuickActions(patients: patients),
                 ],
               ),
             ),
@@ -126,7 +118,7 @@ class _TopBar extends ConsumerWidget {
           height: 46,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            gradient: _caregiverGradient,
+            gradient: kCaregiverGradient,
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -145,7 +137,7 @@ class _TopBar extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: _violet,
+                  color: kViolet,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -154,7 +146,7 @@ class _TopBar extends ConsumerWidget {
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: _ink,
+                  color: kInk,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -163,7 +155,7 @@ class _TopBar extends ConsumerWidget {
         ),
         IconButton(
           tooltip: 'Sign out',
-          icon: const Icon(Icons.logout_rounded, color: _muted),
+          icon: const Icon(Icons.logout_rounded, color: kMuted),
           onPressed: () =>
               ref.read(authControllerProvider.notifier).signOut(),
         ),
@@ -183,7 +175,7 @@ class _SectionLabel extends StatelessWidget {
       style: const TextStyle(
         fontSize: 15.5,
         fontWeight: FontWeight.w800,
-        color: _ink,
+        color: kInk,
       ),
     );
   }
@@ -218,9 +210,9 @@ class _AlertsFeed extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _card,
+          color: kCard,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _cardStroke),
+          border: Border.all(color: kCardStroke),
         ),
         child: Row(
           children: [
@@ -229,17 +221,17 @@ class _AlertsFeed extends StatelessWidget {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: _greenOk.withValues(alpha: 0.12),
+                color: kGreenOk.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.check_rounded,
-                  color: _greenOk, size: 20),
+                  color: kGreenOk, size: 20,),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
                 'No missed doses flagged this week.',
-                style: TextStyle(fontSize: 14, color: _ink),
+                style: TextStyle(fontSize: 14, color: kInk),
               ),
             ),
           ],
@@ -250,9 +242,9 @@ class _AlertsFeed extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _card,
+        color: kCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _red.withValues(alpha: 0.3)),
+        border: Border.all(color: kRed.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +252,7 @@ class _AlertsFeed extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.notifications_active_rounded,
-                  color: _red, size: 20),
+                  color: kRed, size: 20,),
               const SizedBox(width: 8),
               Text(
                 concerns.length == 1
@@ -269,7 +261,7 @@ class _AlertsFeed extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: _ink,
+                  color: kInk,
                 ),
               ),
             ],
@@ -284,7 +276,7 @@ class _AlertsFeed extends StatelessWidget {
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: severe ? _red : _amber,
+                      color: severe ? kRed : kAmber,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -292,7 +284,7 @@ class _AlertsFeed extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '$who took ${percent.round()}% of doses this week',
-                      style: const TextStyle(fontSize: 13.5, color: _muted),
+                      style: const TextStyle(fontSize: 13.5, color: kMuted),
                     ),
                   ),
                 ],
@@ -308,221 +300,133 @@ class _AlertsFeed extends StatelessWidget {
 // Patients
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// One patient, and a way in.
+///
+/// Tapping opens [Routes.caregiverPatient]. Before this the card was inert:
+/// it could tell you someone had taken 62% of their doses and offered no
+/// route to which doses those were.
 class _PatientCard extends StatelessWidget {
   const _PatientCard({required this.patient});
   final LinkedPatientView patient;
 
-  Color get _tone {
-    if (!patient.adherence.hasAnyData) return _muted;
-    final p = patient.adherence.weeklyPercent;
-    if (p >= 80) return _greenOk;
-    if (p >= 50) return _amber;
-    return _red;
-  }
-
   @override
   Widget build(BuildContext context) {
     final a = patient.adherence;
-    final initials = patient.member.patientDisplayName
+    final name = patient.member.patientDisplayName;
+    final tone = adherenceTone(a.weeklyPercent, hasData: a.hasAnyData);
+    final word = adherenceWord(a.weeklyPercent, hasData: a.hasAnyData);
+    final initials = name
         .trim()
         .split(RegExp(r'\s+'))
         .take(2)
         .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
         .join();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _card,
+    return Semantics(
+      button: true,
+      label: a.hasAnyData
+          ? '$name. $word. ${a.weeklyPercent.round()}% of doses taken this '
+              'week. Open for detail.'
+          : '$name. No doses logged yet. Open for detail.',
+      excludeSemantics: true,
+      child: Material(
+        color: kCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _cardStroke),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: _violetSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  initials.isEmpty ? '?' : initials,
-                  style: const TextStyle(
-                    color: _violetDeep,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => context.go(Routes.caregiverPatientFor(
+            patient.member.patientId,
+          ),),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: kCardStroke),
+            ),
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Text(
-                      patient.member.patientDisplayName,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: _ink,
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: kVioletSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        initials.isEmpty ? '?' : initials,
+                        style: const TextStyle(
+                          color: kVioletDeep,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      a.hasAnyData
-                          ? '${a.streakDays}-day streak'
-                          : 'No doses logged yet',
-                      style: const TextStyle(fontSize: 12.5, color: _muted),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: kCardTitle),
+                          const SizedBox(height: 2),
+                          Text(
+                            // A streak of zero isn't a streak; saying
+                            // "0-day streak" is noise where the word alone
+                            // is the useful part.
+                            !a.hasAnyData
+                                ? 'No doses logged yet'
+                                : a.streakDays > 0
+                                    ? '$word · ${a.streakDays}-day streak'
+                                    : word,
+                            style: kBodyMuted.copyWith(
+                              color: a.hasAnyData ? tone : kMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          a.hasAnyData ? '${a.weeklyPercent.round()}%' : '—',
+                          style: kMetric.copyWith(fontSize: 23, color: tone),
+                        ),
+                        const Text('this week', style: kLabel),
+                      ],
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: kMuted),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    a.hasAnyData ? '${a.weeklyPercent.round()}%' : '—',
-                    style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w800,
-                      color: _tone,
-                    ),
-                  ),
-                  const Text(
-                    'this week',
-                    style: TextStyle(fontSize: 11, color: _muted),
+                if (a.hasAnyData) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      for (final day in a.last7Days)
+                        Expanded(
+                          child: Container(
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: !day.hasData
+                                  ? kVioletSoft
+                                  : day.isPerfect
+                                      ? kGreenOk
+                                      : kAmber,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
-              ),
-            ],
-          ),
-          if (a.hasAnyData) ...[
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                for (final day in a.last7Days)
-                  Expanded(
-                    child: Container(
-                      height: 6,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: !day.hasData
-                            ? _violetSoft
-                            : day.isPerfect
-                                ? _greenOk
-                                : _amber,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Care tasks
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// The open tasks for one circle. Loads per patient, because that's how the
-/// repository is keyed — a caregiver with three patients makes three small
-/// fetches rather than one combined query that would need a new endpoint.
-class _CareTasksBlock extends ConsumerWidget {
-  const _CareTasksBlock({required this.patient});
-  final LinkedPatientView patient;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(careTasksProvider(patient.member.patientId));
-
-    return tasks.when(
-      loading: () => const SizedBox.shrink(),
-      // A failed task fetch shouldn't blank the dashboard — the patient
-      // cards above it are the more important information.
-      error: (_, __) => const SizedBox.shrink(),
-      data: (list) {
-        final open =
-            list.where((t) => t.status != 'done').toList(growable: false);
-        if (open.isEmpty) return const SizedBox.shrink();
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _cardStroke),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'For ${patient.member.patientDisplayName}',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: _violet,
-                ),
-              ),
-              const SizedBox(height: 10),
-              for (final task in open.take(4)) _TaskRow(task: task),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({required this.task});
-  final CareTask task;
-
-  @override
-  Widget build(BuildContext context) {
-    final claimed = task.claimedByName != null;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            claimed
-                ? Icons.person_pin_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            size: 18,
-            color: claimed ? _violet : _muted,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
-                  ),
-                ),
-                if (claimed)
-                  Text(
-                    '${task.claimedByName} is on it',
-                    style: const TextStyle(fontSize: 12, color: _muted),
-                  ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -532,12 +436,18 @@ class _TaskRow extends StatelessWidget {
 // Quick actions
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.hasPatients});
-  final bool hasPatients;
+/// There used to be an "Emergency" tile here that opened the dialer on
+/// `tel:` with no number in it — it could not have worked. A caregiver
+/// cannot read `health_profiles`, which is where emergency contacts live and
+/// where they should stay; sharing a patient's full profile to make one
+/// button work would be the wrong trade. So the slot went to the thing a
+/// caregiver actually does often: ask the circle for help.
+class _QuickActions extends ConsumerWidget {
+  const _QuickActions({required this.patients});
+  final List<LinkedPatientView> patients;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
         Expanded(
@@ -550,14 +460,9 @@ class _QuickActions extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _ActionTile(
-            icon: Icons.call_rounded,
-            label: 'Emergency',
-            // Deliberately opens the dialer rather than dialling: a
-            // caregiver tapping around the app should never place a call
-            // by accident.
-            onTap: hasPatients
-                ? () => launchUrl(Uri.parse('tel:'))
-                : null,
+            icon: Icons.add_task_rounded,
+            label: 'Ask for help',
+            onTap: patients.isEmpty ? null : () => _postTask(context, ref),
           ),
         ),
         const SizedBox(width: 10),
@@ -569,6 +474,62 @@ class _QuickActions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Skips the picker when there's only one person to pick.
+  Future<void> _postTask(BuildContext context, WidgetRef ref) async {
+    var target = patients.first;
+    if (patients.length > 1) {
+      final chosen = await showModalBottomSheet<LinkedPatientView>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => _PatientPicker(patients: patients),
+      );
+      if (chosen == null) return;
+      target = chosen;
+    }
+    if (!context.mounted) return;
+    await showAddCareTaskSheet(
+      context,
+      ref,
+      patientId: target.member.patientId,
+      patientName: target.member.patientDisplayName,
+    );
+  }
+}
+
+class _PatientPicker extends StatelessWidget {
+  const _PatientPicker({required this.patients});
+  final List<LinkedPatientView> patients;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Text('Who is this for?', style: kTitle),
+          ),
+          for (final p in patients)
+            ListTile(
+              minVerticalPadding: 12,
+              leading: const CircleAvatar(
+                backgroundColor: kVioletSoft,
+                child: Icon(Icons.person_rounded, color: kVioletDeep),
+              ),
+              title: Text(p.member.patientDisplayName, style: kBody),
+              onTap: () => Navigator.of(context).pop(p),
+            ),
+          const SizedBox(height: 12),
+        ],
+      ),
     );
   }
 }
@@ -588,20 +549,20 @@ class _ActionTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: _card,
+          color: kCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _cardStroke),
+          border: Border.all(color: kCardStroke),
         ),
         child: Column(
           children: [
-            Icon(icon, color: enabled ? _violet : _muted, size: 22),
+            Icon(icon, color: enabled ? kViolet : kMuted, size: 22),
             const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: enabled ? _ink : _muted,
+                color: enabled ? kInk : kMuted,
               ),
             ),
           ],
@@ -615,6 +576,59 @@ class _ActionTile extends StatelessWidget {
 // Empty / loading
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Shown when the circle could not be loaded at all.
+///
+/// Deliberately not styled as an alert about a patient — nothing is known
+/// about any patient right now, and that is exactly what it has to say.
+class _LoadFailedCard extends StatelessWidget {
+  const _LoadFailedCard({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: cardDecoration(stroke: kAmber.withValues(alpha: 0.35)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, color: kAmber, size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text("Couldn't load your circle", style: kCardTitle),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(message, style: kBodyMuted),
+          const SizedBox(height: 6),
+          const Text(
+            "This doesn't mean anything is wrong with the people you care "
+            'for — it means the app has no current information about them.',
+            style: kBodyMuted,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: kViolet,
+                minimumSize: const Size(0, kTapTarget),
+              ),
+              onPressed: onRetry,
+              child: const Text('Try again'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NoPatientsCard extends StatelessWidget {
   const _NoPatientsCard();
 
@@ -623,9 +637,9 @@ class _NoPatientsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: _card,
+        color: kCard,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _cardStroke),
+        border: Border.all(color: kCardStroke),
       ),
       child: Column(
         children: [
@@ -634,11 +648,11 @@ class _NoPatientsCard extends StatelessWidget {
             height: 62,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: _violetSoft,
+              color: kVioletSoft,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.group_add_rounded,
-                color: _violetDeep, size: 28),
+                color: kVioletDeep, size: 28,),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -647,7 +661,7 @@ class _NoPatientsCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: _ink,
+              color: kInk,
             ),
           ),
           const SizedBox(height: 6),
@@ -655,14 +669,14 @@ class _NoPatientsCard extends StatelessWidget {
             'Ask the person you look after to invite you from their '
             'Care Circle. Their medicines and adherence will show up here.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13.5, color: _muted, height: 1.45),
+            style: TextStyle(fontSize: 13.5, color: kMuted, height: 1.45),
           ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: _violet,
+                backgroundColor: kViolet,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -689,7 +703,7 @@ class _LoadingBlock extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 48),
       child: Center(
-        child: CircularProgressIndicator(color: _violet),
+        child: CircularProgressIndicator(color: kViolet),
       ),
     );
   }
@@ -715,7 +729,7 @@ class _CareBackdrop extends StatelessWidget {
               Align(
                 alignment: align,
                 child: Icon(icon,
-                    size: size, color: _violet.withValues(alpha: opacity)),
+                    size: size, color: kViolet.withValues(alpha: opacity),),
               ),
           ],
         ),

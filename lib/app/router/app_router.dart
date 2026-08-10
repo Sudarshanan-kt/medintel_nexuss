@@ -9,6 +9,7 @@ import '../../features/auth/domain/auth_user.dart';
 import '../../features/care_circle/presentation/accept_invite_screen.dart';
 import '../../features/care_circle/presentation/care_circle_screen.dart';
 import '../../features/care_circle/presentation/caregiver_dashboard_screen.dart';
+import '../../features/care_circle/presentation/patient_detail_screen.dart';
 import '../../features/dashboard/presentation/health_timeline_screen.dart';
 import '../../features/interactions/presentation/interaction_checker_screen.dart';
 import '../../features/reports/presentation/biomarker_trend_screen.dart';
@@ -73,6 +74,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.caregiverHome,
         pageBuilder: (_, s) =>
             _sharedAxis(s, const CaregiverDashboardScreen()),
+      ),
+      GoRoute(
+        path: '${Routes.caregiverPatient}/:patientId',
+        pageBuilder: (_, s) => _sharedAxis(
+          s,
+          PatientDetailScreen(
+            patientId: s.pathParameters['patientId'] ?? '',
+          ),
+        ),
       ),
 
       // ── Standalone feature pages ───────────────────────────────────────
@@ -231,8 +241,8 @@ String? _redirect(Ref ref, GoRouterState state) {
               UserRole.caregiver;
       final landing = isCaregiver ? Routes.caregiverHome : Routes.home;
       if (isAuthRoute || isSplash) return landing;
-      if (isCaregiver && !_caregiverRoutes.contains(loc)) return landing;
-      if (!isCaregiver && loc == Routes.caregiverHome) return landing;
+      if (isCaregiver && !_isCaregiverRoute(loc)) return landing;
+      if (!isCaregiver && loc.startsWith(Routes.caregiverHome)) return landing;
       return null;
   }
 }
@@ -252,6 +262,19 @@ const Set<String> _caregiverRoutes = {
   Routes.careCircle,
   Routes.profile,
 };
+
+/// Caregiver routes that carry a path parameter, matched by prefix.
+///
+/// Kept separate from the exact set above so the prefix test stays a
+/// deliberate opt-in: `startsWith` on the whole set would let
+/// `/profile-of-someone-else` through on the strength of `/profile`.
+const List<String> _caregiverRoutePrefixes = [
+  Routes.caregiverPatient,
+];
+
+bool _isCaregiverRoute(String loc) =>
+    _caregiverRoutes.contains(loc) ||
+    _caregiverRoutePrefixes.any((p) => loc.startsWith('$p/'));
 
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(Ref ref) {

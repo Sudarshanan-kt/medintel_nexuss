@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'demo_ocr_cache.dart';
+import '../domain/report_analysis.dart';
 import '../domain/medical_report.dart';
 
 /// Persistent SHA256-keyed prescription cache stored in SharedPreferences.
@@ -12,9 +12,9 @@ import '../domain/medical_report.dart';
 ///   1. Upload image → compute sha256 of bytes.
 ///   2. [lookup] checks here first — if the same image was uploaded before,
 ///      return the previously stored result immediately (no re-analysis needed).
-///   3. After any analysis (demo match or offline fallback), call [persist] so
+///   3. After any analysis, call [persist] so
 ///      the next upload of the same image is recognised instantly.
-///   4. [link] replaces a stored result with a pre-registered demo entry,
+///   4. [link] replaces a stored result with a corrected one,
 ///      letting the user assign the correct medicines on first upload.
 class RxLocalStore {
   static const _key = 'medintel_rx_sha256_store_v1';
@@ -35,8 +35,8 @@ class RxLocalStore {
     await prefs.setString(_key, jsonEncode(data));
   }
 
-  /// Returns a stored [DemoOcrResult] for [sha256], or `null` if unseen.
-  Future<DemoOcrResult?> lookup(String sha256) async {
+  /// Returns a stored [ReportAnalysis] for [sha256], or `null` if unseen.
+  Future<ReportAnalysis?> lookup(String sha256) async {
     final store = await _load();
     final entry = store[sha256];
     if (entry == null) return null;
@@ -48,7 +48,7 @@ class RxLocalStore {
   }
 
   /// Saves [result] keyed by [sha256].  Safe to call multiple times (idempotent).
-  Future<void> persist(String sha256, DemoOcrResult result) async {
+  Future<void> persist(String sha256, ReportAnalysis result) async {
     final store = await _load();
     store[sha256] = _resultToMap(result);
     await _save(store);
@@ -56,13 +56,13 @@ class RxLocalStore {
 
   /// Replaces any existing entry for [sha256] with [newResult].
   /// Used by the "Link prescription" UI to swap an offline-fallback result
-  /// with the correct pre-extracted demo data.
-  Future<void> link(String sha256, DemoOcrResult newResult) =>
+  /// with corrected analysis data.
+  Future<void> link(String sha256, ReportAnalysis newResult) =>
       persist(sha256, newResult);
 
   // ── Serialisation ──────────────────────────────────────────────────────
 
-  static Map<String, dynamic> _resultToMap(DemoOcrResult r) => {
+  static Map<String, dynamic> _resultToMap(ReportAnalysis r) => {
         'id': r.id,
         'title': r.title,
         'confidence': r.confidence,
@@ -95,12 +95,12 @@ class RxLocalStore {
             .toList(),
       };
 
-  static DemoOcrResult _resultFromMap(Map<String, dynamic> m) {
+  static ReportAnalysis _resultFromMap(Map<String, dynamic> m) {
     final meds = (m['medicines'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
         .map(PrescriptionMedicine.fromJson)
         .toList();
-    return DemoOcrResult(
+    return ReportAnalysis(
       id: (m['id'] as String?) ?? 'local',
       title: (m['title'] as String?) ?? 'Prescription',
       confidence: (m['confidence'] as num?)?.toDouble() ?? 0.9,
@@ -110,7 +110,7 @@ class RxLocalStore {
           ((m['riskAnalysis'] as List?) ?? const []).map((e) => '$e').toList(),
       insights:
           ((m['insights'] as List?) ?? const []).map((e) => '$e').toList(),
-      metrics: DemoOcrResult.metricsFromJsonList(m['metrics'] as List?),
+      metrics: ReportAnalysis.metricsFromJsonList(m['metrics'] as List?),
     );
   }
 }

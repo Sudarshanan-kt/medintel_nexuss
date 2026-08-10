@@ -142,7 +142,6 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             title: picked.name,
             type: ReportType.lab,
             fileRef: fileRef,
-            fileName: picked.name,
             sha256: fileSha256,
           );
 
@@ -181,7 +180,6 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             title: _suggestedTitle(type),
             type: type,
             fileRef: file.path,
-            fileName: file.name,
             sha256: fileSha256,
           );
 

@@ -59,6 +59,36 @@ abstract interface class AuthRepository {
     GoogleWebCredential credential,
   );
 
+  /// Texts a one-time sign-in code to [phone].
+  ///
+  /// This is how caregivers sign in — they have no password at all. A
+  /// caregiver account is created the first time somebody redeems an invite
+  /// code, often by an older relative who will use the app rarely; a
+  /// password they set once and must remember months later is the step most
+  /// likely to lose them. A code on their phone has nothing to remember,
+  /// and a mobile number is the one credential that audience always has to
+  /// hand — an email address often isn't.
+  ///
+  /// [phone] must be in E.164 form (`+919876543210`). Supabase rejects
+  /// anything else outright, so callers normalise before arriving here.
+  ///
+  /// [shouldCreateUser] controls whether an unrecognised number is signed up
+  /// on the spot. True for caregivers, since arriving with an invite is
+  /// exactly how a new caregiver appears.
+  ///
+  /// Returns [Success] once the SMS is dispatched — the sign-in itself
+  /// completes in [verifyPhoneOtp].
+  Future<Result<void>> sendPhoneOtp({
+    required String phone,
+    bool shouldCreateUser = true,
+  });
+
+  /// Exchanges the texted [token] for a session.
+  Future<Result<AuthUser>> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  });
+
   /// Sends a password-reset email to [email].
   /// Returns [Success(null)] on dispatch; the actual reset happens via link.
   Future<Result<void>> sendPasswordResetEmail(String email);

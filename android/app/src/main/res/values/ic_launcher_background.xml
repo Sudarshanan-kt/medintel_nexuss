@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MedIntel Nexus brand green, sampled from the logo artwork. -->
+    <color name="ic_launcher_background">#03AA77</color>
+</resources>

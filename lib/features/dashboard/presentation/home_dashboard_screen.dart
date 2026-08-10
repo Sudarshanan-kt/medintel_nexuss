@@ -7,6 +7,7 @@ import '../../../app/router/route_names.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_sheet.dart';
+import '../../../shared/widgets/medical_motif_backdrop.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../care_circle/application/care_circle_controller.dart';
 import '../../reminders/adherence_controller.dart';
@@ -94,8 +95,12 @@ class HomeDashboardScreen extends ConsumerWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: _FaintBackdrop(
+            child: MedicalMotifBackdrop(
               tint: showCaregiverView ? _violetBackdropTint : _backdropTint,
+              // Held back a little: this screen already carries the header
+              // illustration, and two decorative layers at full strength
+              // read as clutter.
+              intensity: 0.9,
             ),
           ),
           // The illustrated header sits behind the greeting only, so the
@@ -311,43 +316,6 @@ class HomeDashboardScreen extends ConsumerWidget {
 // Faint medical-iconography backdrop — matches the sign-in screen's identity,
 // much sparser/paler here since real content sits over it the whole time.
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _FaintBackdrop extends StatelessWidget {
-  const _FaintBackdrop({this.tint = _backdropTint});
-  final Color tint;
-
-  static const List<(Alignment, IconData, double, double)> _items = [
-    (Alignment(-0.75, -0.95), Icons.medical_services_outlined, 60, .22),
-    (Alignment(0.05, -0.90), Icons.favorite_rounded, 68, .18),
-    (Alignment(0.70, -0.92), Icons.medication_rounded, 56, .20),
-    (Alignment(0.95, -0.72), Icons.biotech_rounded, 60, .18),
-    (Alignment(-0.55, -0.55), Icons.monitor_heart_outlined, 70, .14),
-    (Alignment(0.90, -0.30), Icons.water_drop_rounded, 48, .16),
-    (Alignment(-0.92, 0.05), Icons.vaccines_rounded, 62, .16),
-    (Alignment(0.30, 0.02), Icons.add_rounded, 40, .12),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ExcludeSemantics(
-        child: Stack(
-          children: [
-            for (final (align, icon, size, opacity) in _items)
-              Align(
-                alignment: align,
-                child: Icon(
-                  icon,
-                  size: size,
-                  color: tint.withValues(alpha: opacity),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Header — menu (opens quick actions), notification bell, caregiver switch,
@@ -1654,8 +1622,9 @@ _DoseSlot? _nextDoseSlot(
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HeaderIllustration extends StatelessWidget {
-  const _HeaderIllustration({this.height = 210});
-  final double height;
+  const _HeaderIllustration();
+
+  static const double height = 210;
 
   @override
   Widget build(BuildContext context) {

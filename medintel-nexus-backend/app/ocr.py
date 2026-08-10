@@ -120,14 +120,118 @@ class OcrResult:
     words: List[OcrWord]
 
 
+# A PDF page carrying at least this much text is treated as having a real
+# text layer. Below it the "text" is usually just a header or a stray label
+# stamped on a scan, and rasterising to OCR reads far more.
+_PDF_TEXT_LAYER_MIN_CHARS = 120
+
+# Lab PDFs are vector text at heart; 200 DPI is enough for Tesseract without
+# producing huge bitmaps for a multi-page panel.
+_PDF_RASTER_DPI = 200
+
+# A report longer than this is almost certainly an appendix-heavy export,
+# and the structuring model's context window is the real limit anyway.
+_PDF_MAX_PAGES = 10
+
+
+def _is_pdf(path: str) -> bool:
+    """Sniffs the magic bytes rather than trusting the extension — the app
+    uploads with a generated file name and the real type is what matters.
+    """
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(5) == b"%PDF-"
+    except OSError:
+        return False
+
+
+def _extract_pdf(pdf_path: str) -> OcrResult:
+    """Reads a PDF, preferring its text layer over OCR.
+
+    Most lab reports arrive as digitally generated PDFs, which carry the
+    values as real text. Reading that layer is exact and instant — running
+    Tesseract over a rasterised page instead would only introduce OCR errors
+    into numbers that were already perfect. Scans (no text layer) fall back
+    to rasterise-then-OCR.
+
+    Text-layer words get a confidence of 1.0 because they were not guessed:
+    the character codes are what the generator wrote.
+    """
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        logger.error(
+            "PDF upload received but PyMuPDF isn't installed. "
+            "Run `pip install -r requirements.txt`."
+        )
+        return OcrResult(text="", words=[])
+
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        logger.exception("Could not open PDF %s", pdf_path)
+        return OcrResult(text="", words=[])
+
+    pages: List[str] = []
+    words: List[OcrWord] = []
+    try:
+        for page in doc[:_PDF_MAX_PAGES]:
+            text = (page.get_text() or "").strip()
+            if len(text) >= _PDF_TEXT_LAYER_MIN_CHARS:
+                pages.append(text)
+                words.extend(
+                    OcrWord(text=tok, confidence=1.0)
+                    for tok in text.split()
+                )
+                continue
+
+            # No usable text layer — this page is a scan. Rasterise it and
+            # hand it to Tesseract like any other photo.
+            pix = page.get_pixmap(dpi=_PDF_RASTER_DPI)
+            img = Image.frombytes(
+                "RGB", (pix.width, pix.height), pix.samples
+            )
+            page_result = _extract_pil(img)
+            if page_result.text:
+                pages.append(page_result.text)
+                words.extend(page_result.words)
+    except Exception:
+        logger.exception("PDF extraction failed for %s", pdf_path)
+        return OcrResult(text="", words=[])
+    finally:
+        doc.close()
+
+    return OcrResult(text="\n".join(pages), words=words)
+
+
+def _extract_pil(img: "Image.Image") -> OcrResult:
+    """Tesseract over an already-open image. Shared by the photo path and
+    the rasterised-PDF-page path."""
+    try:
+        data = pytesseract.image_to_data(
+            img, output_type=pytesseract.Output.DICT
+        )
+    except Exception:
+        logger.exception("Tesseract OCR failed")
+        return OcrResult(text="", words=[])
+    return _rows_to_result(data)
+
+
 def extract(image_path: str) -> OcrResult:
     """Runs Tesseract on the image at [image_path], keeping the per-word
     confidences alongside the joined text.
+
+    PDFs are handled by [_extract_pdf] — Pillow's PDF support is
+    write-only, so `Image.open` on one raises, which is exactly how every
+    uploaded lab-report PDF used to end up as "nothing readable".
 
     Returns an empty result (not an exception) on any failure — callers
     treat empty text as "nothing readable" rather than crashing the whole
     pipeline over one bad image.
     """
+    if _is_pdf(image_path):
+        return _extract_pdf(image_path)
+
     try:
         with Image.open(image_path) as img:
             data = pytesseract.image_to_data(
@@ -137,6 +241,11 @@ def extract(image_path: str) -> OcrResult:
         logger.exception("Tesseract OCR failed for %s", image_path)
         return OcrResult(text="", words=[])
 
+    return _rows_to_result(data)
+
+
+def _rows_to_result(data: dict) -> OcrResult:
+    """Folds Tesseract's per-word table into text plus confidences."""
     words: List[OcrWord] = []
     # Line structure carries meaning the LLM stage depends on — one medicine
     # (or one lab value and its reference range) per line — so it's rebuilt

@@ -26,6 +26,11 @@ abstract final class Routes {
   static const String reminders = '/reminders';
   static const String sos = '/sos';
   static const String careCircle = '/care-circle';
+
+  /// One linked patient, seen by a caregiver. + /:patientId
+  static const String caregiverPatient = '/caregiver-home/patient';
+  static String caregiverPatientFor(String patientId) =>
+      '/caregiver-home/patient/$patientId';
   static const String healthInsights = '/health-insights';
   static const String healthTimeline = '/health-insights/timeline';
   static const String savings = '/savings';

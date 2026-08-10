@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import 'medical_motif_backdrop.dart';
 
 /// Scaffold with a soft aurora-mesh background — the standard screen
 /// container for MedIntel Nexus. Honours dark mode.
@@ -13,6 +14,7 @@ class GradientScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.showMesh = true,
+    this.showMotifs = true,
     this.extendBody = false,
   });
 
@@ -22,6 +24,11 @@ class GradientScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final bool showMesh;
+
+  /// Floating medical imagery behind the content. Off for screens that are
+  /// already carrying a full-bleed image or illustration of their own —
+  /// two decorative layers fight each other.
+  final bool showMotifs;
   final bool extendBody;
 
   @override
@@ -39,6 +46,10 @@ class GradientScaffold extends StatelessWidget {
       body: Stack(
         children: [
           if (showMesh) _AuroraMesh(isDark: isDark),
+          // Above the mesh so the motifs read against the wash rather than
+          // being lost inside a blob, but still beneath every pixel of
+          // content.
+          if (showMotifs) const Positioned.fill(child: MedicalMotifBackdrop()),
           SafeArea(bottom: false, child: body),
         ],
       ),

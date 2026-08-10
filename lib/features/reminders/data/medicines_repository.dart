@@ -53,31 +53,46 @@ class MedicinesRepository {
     );
   }
 
+  /// Returns [] on failure — the patient's own device treats an unreachable
+  /// server as "nothing to merge" and keeps its local copy, so a failed
+  /// fetch is genuinely not an error there.
+  ///
+  /// A caregiver has no local copy to fall back on, and "no medicines" and
+  /// "couldn't load" mean opposite things to someone checking on a parent.
+  /// That path uses [fetchMedicinesOrThrow] instead.
   Future<List<Medicine>> fetchAllMedicines(String userId) async {
     try {
-      final rows = await _supabase
-          .from(_medsTable)
-          .select('payload')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-
-      return rows
-          .map((row) {
-            try {
-              final p = row['payload'];
-              if (p is Map<String, dynamic>) {
-                return Medicine.fromJson(p);
-              }
-              return null;
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<Medicine>()
-          .toList();
+      return await fetchMedicinesOrThrow(userId);
     } catch (_) {
       return [];
     }
+  }
+
+  /// As [fetchAllMedicines], but lets the failure through.
+  Future<List<Medicine>> fetchMedicinesOrThrow(String userId) async {
+    final rows = await _supabase
+        .from(_medsTable)
+        .select('payload')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    // A single unparseable row is dropped rather than failing the batch —
+    // that's a bad record, not a failed load, and the distinction this
+    // method exists to preserve is about reachability.
+    return rows
+        .map((row) {
+          try {
+            final p = row['payload'];
+            if (p is Map<String, dynamic>) {
+              return Medicine.fromJson(p);
+            }
+            return null;
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<Medicine>()
+        .toList();
   }
 
   Future<void> deleteMedicine(String userId, String id) async {
@@ -102,31 +117,40 @@ class MedicinesRepository {
     );
   }
 
+  /// Returns [] on failure. See [fetchAllMedicines] for why the caregiver
+  /// path uses [fetchDoseLogsOrThrow] instead — an adherence figure computed
+  /// from a silently-failed fetch reads as "no doses logged", which is the
+  /// one thing a caregiver must never be told by mistake.
   Future<List<DoseLog>> fetchAllDoseLogs(String userId) async {
     try {
-      final rows = await _supabase
-          .from(_logsTable)
-          .select('payload')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-
-      return rows
-          .map((row) {
-            try {
-              final p = row['payload'];
-              if (p is Map<String, dynamic>) {
-                return DoseLog.fromJson(p);
-              }
-              return null;
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<DoseLog>()
-          .toList();
+      return await fetchDoseLogsOrThrow(userId);
     } catch (_) {
       return [];
     }
+  }
+
+  /// As [fetchAllDoseLogs], but lets the failure through.
+  Future<List<DoseLog>> fetchDoseLogsOrThrow(String userId) async {
+    final rows = await _supabase
+        .from(_logsTable)
+        .select('payload')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    return rows
+        .map((row) {
+          try {
+            final p = row['payload'];
+            if (p is Map<String, dynamic>) {
+              return DoseLog.fromJson(p);
+            }
+            return null;
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<DoseLog>()
+        .toList();
   }
 
   Future<void> deleteDoseLog(String userId, String id) async {

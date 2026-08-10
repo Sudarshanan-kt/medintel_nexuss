@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
-import '../../../shared/widgets/google_logo.dart';
 import '../application/auth_controller.dart';
 import '../domain/auth_user.dart';
 
@@ -36,15 +37,19 @@ const LinearGradient _caregiverGradient = LinearGradient(
 
 /// Sign-in for people who look after someone else.
 ///
-/// The form is the same Supabase email/Google flow the patient screen uses —
-/// what differs is the identity and the expectations it sets. A caregiver
-/// arriving here should understand immediately that they'll see someone
-/// else's medicines, not their own.
+/// Caregivers have no password. They enter a mobile number, receive a
+/// six-digit code by SMS, and type it in — that is the whole flow. A
+/// caregiver account is typically created once, when an older relative
+/// redeems an invite, and then used occasionally; a password set on that day
+/// and needed again three months later is the step most likely to lose them.
+/// A phone is also the one credential that audience reliably has — an email
+/// address often isn't.
 ///
-/// Choosing this screen does **not** grant caregiver access. It's passed as
-/// a hint for accounts that have no role yet (a first Google sign-in); an
-/// existing account always keeps the role on its profile. Picking the wrong
-/// door can't get you someone else's data.
+/// Choosing this screen does **not** grant caregiver access. The role is
+/// passed only as a hint for accounts that have none yet (a brand-new
+/// caregiver's first sign-in); an existing account always keeps the role
+/// recorded on its profile. Coming through the wrong door cannot get you
+/// somebody else's data.
 class CaregiverLoginScreen extends ConsumerStatefulWidget {
   const CaregiverLoginScreen({super.key});
 
@@ -54,20 +59,92 @@ class CaregiverLoginScreen extends ConsumerStatefulWidget {
 }
 
 class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _obscure = true;
+  final _phone = TextEditingController();
+  final _code = TextEditingController();
+  final _phoneFormKey = GlobalKey<FormState>();
+
+  /// Dialling code prefixed to whatever is typed.
+  ///
+  /// Supabase requires E.164 (`+919876543210`) and rejects anything else, so
+  /// the country code can't be optional. Offering it as a picker with a
+  /// sensible default beats asking people to remember to type "+91".
+  String _dialCode = '+91';
+
+  /// Which half of the flow is on screen. There is no password step at all.
+  bool _codeSent = false;
+  bool _sending = false;
   String? _errorMessage;
+
+  /// Seconds until "Resend code" becomes available again.
+  ///
+  /// Supabase rate-limits repeat sends per address and returns an error that
+  /// reads like a fault. Counting down here means the button is simply
+  /// unavailable until it would work, instead of failing when pressed.
+  int _resendIn = 0;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
-    _email.dispose();
-    _password.dispose();
+    _resendTimer?.cancel();
+    _phone.dispose();
+    _code.dispose();
     super.dispose();
   }
 
-  void _captureError() {
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendIn = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _resendIn--);
+      if (_resendIn <= 0) t.cancel();
+    });
+  }
+
+  /// The number in the form Supabase accepts: dialling code, then digits
+  /// only. Strips spaces, dashes and brackets people naturally type, and a
+  /// leading 0 — Indian numbers are often written "09876543210" but E.164
+  /// has no trunk prefix.
+  String get _e164 {
+    var digits = _phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    while (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+    return '$_dialCode$digits';
+  }
+
+  Future<void> _sendCode({bool resend = false}) async {
+    if (!resend && !(_phoneFormKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _errorMessage = null;
+      _sending = true;
+    });
+
+    final error =
+        await ref.read(authControllerProvider.notifier).sendPhoneOtp(_e164);
+
+    if (!mounted) return;
+    setState(() {
+      _sending = false;
+      _errorMessage = error;
+      if (error == null) _codeSent = true;
+    });
+    if (error == null) _startResendCooldown();
+  }
+
+  Future<void> _verify() async {
+    if (_code.text.trim().length < 6) {
+      setState(() => _errorMessage = 'Enter the 6-digit code.');
+      return;
+    }
+    setState(() => _errorMessage = null);
+
+    await ref.read(authControllerProvider.notifier).verifyPhoneOtp(
+          _e164,
+          _code.text,
+          roleHint: UserRole.caregiver,
+        );
+
     if (!mounted) return;
     final authState = ref.read(authControllerProvider).valueOrNull;
     if (authState?.errorMessage != null) {
@@ -75,28 +152,19 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
     }
   }
 
-  Future<void> _submit() async {
-    setState(() => _errorMessage = null);
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    await ref.read(authControllerProvider.notifier).loginWithEmail(
-          _email.text.trim(),
-          _password.text,
-          roleHint: UserRole.caregiver,
-        );
-    _captureError();
-  }
-
-  Future<void> _googleSignIn() async {
-    setState(() => _errorMessage = null);
-    await ref
-        .read(authControllerProvider.notifier)
-        .signInWithGoogle(roleHint: UserRole.caregiver);
-    _captureError();
+  void _changeNumber() {
+    _resendTimer?.cancel();
+    setState(() {
+      _codeSent = false;
+      _resendIn = 0;
+      _code.clear();
+      _errorMessage = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(authControllerProvider).isLoading;
+    final isLoading = ref.watch(authControllerProvider).isLoading || _sending;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -113,16 +181,17 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                     alignment: Alignment.centerLeft,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-                      onPressed: () => context.go(Routes.signIn),
+                      onPressed: () =>
+                          _codeSent ? _changeNumber() : context.go(Routes.signIn),
                     ),
                   ),
                   const SizedBox(height: 8),
                   const _CaregiverMark(),
                   const SizedBox(height: 22),
-                  const Text(
-                    'Caregiver sign in',
+                  Text(
+                    _codeSent ? 'Enter your code' : 'Caregiver sign in',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: _ink,
@@ -130,11 +199,17 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Keep track of the medicines and appointments\n'
-                    'of someone you look after.',
+                  Text(
+                    _codeSent
+                        ? 'We texted a 6-digit code to\n$_e164'
+                        : 'Keep track of the medicines and appointments\n'
+                            'of someone you look after.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: _muted, height: 1.45),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: _muted,
+                      height: 1.45,
+                    ),
                   ),
                   const SizedBox(height: 26),
 
@@ -152,69 +227,18 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                         ),
                       ],
                     ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_errorMessage != null) ...[
-                            _ErrorBanner(message: _errorMessage!),
-                            const SizedBox(height: 14),
-                          ],
-                          _Field(
-                            controller: _email,
-                            hint: 'Email address',
-                            icon: Icons.mail_outline_rounded,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: Validators.email,
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _password,
-                            hint: 'Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscure: _obscure,
-                            validator: Validators.password,
-                            suffix: IconButton(
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_off_rounded
-                                    : Icons.visibility_rounded,
-                                color: _muted,
-                                size: 20,
-                              ),
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => context.go(Routes.forgotPassword),
-                              child: const Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  color: _violet,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _PrimaryButton(
-                            label: 'Sign in as caregiver',
-                            isLoading: isLoading,
-                            onPressed: isLoading ? null : _submit,
-                          ),
-                          const SizedBox(height: 16),
-                          const _OrDivider(),
-                          const SizedBox(height: 16),
-                          _GoogleButton(
-                            onPressed: isLoading ? null : _googleSignIn,
-                          ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_errorMessage != null) ...[
+                          _ErrorBanner(message: _errorMessage!),
+                          const SizedBox(height: 14),
                         ],
-                      ),
+                        if (!_codeSent)
+                          ..._phoneStep(isLoading)
+                        else
+                          ..._codeStep(isLoading),
+                      ],
                     ),
                   ),
 
@@ -243,19 +267,6 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                       ],
                     ),
                   ),
-                  Center(
-                    child: TextButton(
-                      onPressed: () => context.go(Routes.signUp),
-                      child: const Text(
-                        'Create a caregiver account',
-                        style: TextStyle(
-                          color: _violet,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13.5,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -264,6 +275,97 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
       ),
     );
   }
+
+  List<Widget> _phoneStep(bool isLoading) => [
+        Form(
+          key: _phoneFormKey,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DialCodePicker(
+                value: _dialCode,
+                onChanged: isLoading
+                    ? null
+                    : (code) => setState(() => _dialCode = code),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Field(
+                  controller: _phone,
+                  hint: 'Mobile number',
+                  icon: Icons.phone_iphone_rounded,
+                  keyboardType: TextInputType.phone,
+                  validator: Validators.phone,
+                  autofillHints: const [AutofillHints.telephoneNumber],
+                  onSubmitted: (_) => isLoading ? null : _sendCode(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _PrimaryButton(
+          label: 'Text me a code',
+          isLoading: isLoading,
+          onPressed: isLoading ? null : _sendCode,
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          "No password needed — we'll text a code each time you sign in.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12.5, color: _muted, height: 1.4),
+        ),
+      ];
+
+  List<Widget> _codeStep(bool isLoading) => [
+        _Field(
+          controller: _code,
+          hint: '6-digit code',
+          icon: Icons.sms_outlined,
+          keyboardType: TextInputType.number,
+          // Lets Android and iOS drop the code straight in from the SMS.
+          autofillHints: const [AutofillHints.oneTimeCode],
+          maxLength: 6,
+          autofocus: true,
+          onSubmitted: (_) => isLoading ? null : _verify(),
+        ),
+        const SizedBox(height: 4),
+        _PrimaryButton(
+          label: 'Sign in as caregiver',
+          isLoading: isLoading,
+          onPressed: isLoading ? null : _verify,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton(
+              onPressed: isLoading ? null : _changeNumber,
+              child: const Text(
+                'Change number',
+                style: TextStyle(
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: (isLoading || _resendIn > 0)
+                  ? null
+                  : () => _sendCode(resend: true),
+              child: Text(
+                _resendIn > 0 ? 'Resend in ${_resendIn}s' : 'Resend code',
+                style: TextStyle(
+                  color: _resendIn > 0 ? _muted : _violet,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -339,38 +441,106 @@ class _CaregiverBackdrop extends StatelessWidget {
   }
 }
 
+/// Country dialling code.
+///
+/// Deliberately a short list rather than every country on earth: this app's
+/// users are in India, with a handful of relatives abroad who might be in a
+/// care circle. A 200-entry scroll would be worse for everyone.
+class _DialCodePicker extends StatelessWidget {
+  const _DialCodePicker({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String>? onChanged;
+
+  static const _codes = <String, String>{
+    '+91': 'IN',
+    '+1': 'US',
+    '+44': 'UK',
+    '+61': 'AU',
+    '+65': 'SG',
+    '+971': 'AE',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: _fieldFill,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _fieldStroke),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          onChanged: onChanged == null
+              ? null
+              : (v) => v == null ? null : onChanged!(v),
+          isDense: true,
+          borderRadius: BorderRadius.circular(14),
+          style: const TextStyle(color: _ink, fontSize: 15),
+          icon: const Icon(Icons.expand_more_rounded, color: _muted, size: 18),
+          items: [
+            for (final entry in _codes.entries)
+              DropdownMenuItem(
+                value: entry.key,
+                child: Text(
+                  '${entry.value} ${entry.key}',
+                  style: const TextStyle(color: _ink, fontSize: 15),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Field extends StatelessWidget {
   const _Field({
     required this.controller,
     required this.hint,
     required this.icon,
-    this.obscure = false,
     this.keyboardType,
     this.validator,
-    this.suffix,
+    this.autofillHints,
+    this.maxLength,
+    this.autofocus = false,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
   final String hint;
   final IconData icon;
-  final bool obscure;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
-  final Widget? suffix;
+
+  /// Lets the platform offer the emailed code straight from the notification
+  /// (`AutofillHints.oneTimeCode`) — the difference between typing six
+  /// digits and tapping once.
+  final Iterable<String>? autofillHints;
+
+  final int? maxLength;
+  final bool autofocus;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      obscureText: obscure,
       keyboardType: keyboardType,
       validator: validator,
+      autofillHints: autofillHints,
+      maxLength: maxLength,
+      autofocus: autofocus,
+      onFieldSubmitted: onSubmitted,
       style: const TextStyle(color: _ink, fontSize: 15),
       decoration: InputDecoration(
+        counterText: '',
         hintText: hint,
         hintStyle: const TextStyle(color: _muted, fontSize: 14.5),
         prefixIcon: Icon(icon, color: _muted, size: 20),
-        suffixIcon: suffix,
         filled: true,
         fillColor: _fieldFill,
         contentPadding:
@@ -450,52 +620,6 @@ class _PrimaryButton extends StatelessWidget {
                 ),
               ),
       ),
-    );
-  }
-}
-
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.onPressed});
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: const GoogleLogo(size: 18),
-      label: const Text(
-        'Continue with Google',
-        style: TextStyle(
-          color: _ink,
-          fontWeight: FontWeight.w600,
-          fontSize: 14.5,
-        ),
-      ),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        side: const BorderSide(color: _fieldStroke),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: Divider(color: _fieldStroke)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('or', style: TextStyle(color: _muted, fontSize: 13)),
-        ),
-        Expanded(child: Divider(color: _fieldStroke)),
-      ],
     );
   }
 }

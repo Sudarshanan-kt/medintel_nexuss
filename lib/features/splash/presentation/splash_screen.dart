@@ -109,21 +109,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ),
                       ),
                     ),
-                    // Logo mark.
+                    // Logo mark — the real app icon, so the splash matches
+                    // the tile the user just tapped on their home screen.
                     Transform.scale(
                       scale: logoT,
-                      child: Container(
-                        width: 112,
-                        height: 112,
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: AppColors.brandGradient,
                           borderRadius: BorderRadius.circular(32),
                           boxShadow: AppShadows.brandGlow,
                         ),
-                        child: const Icon(
-                          Icons.health_and_safety_rounded,
-                          color: Colors.white,
-                          size: 60,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(32),
+                          child: Image.asset(
+                            'assets/branding/app_icon.png',
+                            width: 112,
+                            height: 112,
+                            filterQuality: FilterQuality.medium,
+                          ),
                         ),
                       ),
                     ),

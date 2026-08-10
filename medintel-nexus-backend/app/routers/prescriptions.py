@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.envelope import ApiError, success
@@ -61,9 +61,19 @@ class CreateUploadRequest(BaseModel):
 
 @router.post("/uploads")
 def create_prescription_upload(
-    body: CreateUploadRequest, user_id: str = Depends(get_current_user_id)
+    body: CreateUploadRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    upload = create_upload(user_id, body.file_name, body.mime_type, body.size_bytes)
+    # The client PUTs the bytes to the URL we hand back, so it must be
+    # built from the address the client actually reached us on.
+    upload = create_upload(
+        user_id,
+        body.file_name,
+        body.mime_type,
+        body.size_bytes,
+        base_url=str(request.base_url),
+    )
     return success(
         {
             "upload_id": upload.id,

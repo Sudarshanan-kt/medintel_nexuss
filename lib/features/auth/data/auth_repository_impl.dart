@@ -104,6 +104,63 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  // ── Phone OTP ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<Result<void>> sendPhoneOtp({
+    required String phone,
+    bool shouldCreateUser = true,
+  }) async {
+    final number = phone.trim();
+    if (number.isEmpty) {
+      return const ResultFailure(AuthFailure('Enter your mobile number.'));
+    }
+    try {
+      await _supabase.auth.signInWithOtp(
+        phone: number,
+        shouldCreateUser: shouldCreateUser,
+      );
+      return const Success(null);
+    } on AuthException catch (e) {
+      return ResultFailure(AuthFailure(_friendlyAuthMessage(e.message)));
+    } catch (e) {
+      return ResultFailure(AuthFailure(_friendlyAuthMessage(e.toString())));
+    }
+  }
+
+  @override
+  Future<Result<AuthUser>> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
+    final code = token.trim();
+    if (code.isEmpty) {
+      return const ResultFailure(AuthFailure('Enter the code we texted you.'));
+    }
+    try {
+      final res = await _supabase.auth.verifyOTP(
+        phone: phone.trim(),
+        token: code,
+        // `sms` covers both a first sign-in and a returning one. `signup`
+        // would reject anyone who already has an account, and `phone_change`
+        // is for a different flow entirely.
+        type: OtpType.sms,
+      );
+      final supaUser = res.user;
+      if (supaUser == null) {
+        return const ResultFailure(
+          AuthFailure('That code did not work. Request a new one.'),
+        );
+      }
+      await _cacheOnboardingFlag(supaUser);
+      return Success(_mapSupaUser(supaUser));
+    } on AuthException catch (e) {
+      return ResultFailure(AuthFailure(_friendlyAuthMessage(e.message)));
+    } catch (e) {
+      return ResultFailure(AuthFailure(_friendlyAuthMessage(e.toString())));
+    }
+  }
+
   // ── signInWithGoogle ─────────────────────────────────────────────────────
 
   @override
@@ -303,6 +360,7 @@ class AuthRepositoryImpl implements AuthRepository {
       onboardingComplete: onboardingComplete,
       fullName: fullName?.isEmpty == true ? null : fullName,
       email: supaUser.email,
+      phone: supaUser.phone,
       avatarUrl: meta['avatar_url'] as String?,
     );
   }
@@ -351,8 +409,33 @@ class AuthRepositoryImpl implements AuthRepository {
     if (lower.contains('password should be at least')) {
       return 'Password must be at least 8 characters.';
     }
-    if (lower.contains('rate limit')) {
+    if (lower.contains('rate limit') ||
+        lower.contains('for security purposes')) {
+      // Supabase throttles OTP sends per address; "for security purposes,
+      // you can only request this after N seconds" arrives as a plain
+      // AuthException and reads like a fault if shown raw.
       return 'Too many attempts. Please wait a moment and try again.';
+    }
+    if (lower.contains('token has expired') ||
+        lower.contains('otp_expired') ||
+        lower.contains('invalid token') ||
+        lower.contains('token is invalid')) {
+      return 'That code has expired or is incorrect. Request a new one.';
+    }
+    if (lower.contains('signups not allowed') ||
+        lower.contains('signup is disabled')) {
+      return "This number isn't registered, and new sign-ups are disabled.";
+    }
+    if (lower.contains('invalid phone') ||
+        lower.contains('phone number is invalid')) {
+      return 'That mobile number looks wrong. Include the country code.';
+    }
+    if (lower.contains('sms provider') ||
+        lower.contains('unsupported phone provider') ||
+        lower.contains('phone provider')) {
+      // Nothing the user can do — the project has no SMS provider set up.
+      return 'Text-message sign-in is not configured yet. '
+          'Contact support.';
     }
     if (lower.contains('network') || lower.contains('connection')) {
       return 'No internet connection. Check your network and try again.';

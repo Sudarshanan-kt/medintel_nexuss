@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,9 +17,9 @@ import '../application/scans_controller.dart';
 /// an animated capture frame with corner markers + scan line, and exposes
 /// flash / gallery / shutter / switch-camera controls.
 ///
-/// In production the captured frame would be passed through the AI pipeline
-/// (OCR → BioBERT → risk). This scaffold sends the user straight to the
-/// pre-baked demo result so the UX flow is end-to-end testable.
+/// The captured frame goes through the real pipeline — [ScansController]
+/// uploads it and the backend runs OCR, so the result screen shows what
+/// was actually read, or says it couldn't read it.
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
 
@@ -29,7 +31,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   late final AnimationController _scan;
   CameraController? _controller;
-  Future<void>? _initFuture;
   bool _flash = false;
   String? _error;
 
@@ -41,7 +42,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
-    _initFuture = _initialiseCamera();
+    unawaited(_initialiseCamera());
   }
 
   Future<void> _initialiseCamera() async {
@@ -89,7 +90,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       controller.dispose();
       _controller = null;
     } else if (state == AppLifecycleState.resumed) {
-      _initFuture = _initialiseCamera();
+      unawaited(_initialiseCamera());
       setState(() {});
     }
   }

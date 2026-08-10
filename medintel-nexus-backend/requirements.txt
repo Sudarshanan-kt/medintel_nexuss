@@ -12,6 +12,9 @@ redis==5.2.1
 python-multipart==0.0.20
 pytesseract==0.3.13
 pillow==11.3.0
+# Lab reports arrive as PDFs. Pillow's PDF support is write-only, so this
+# is what reads them — text layer first, rasterise-and-OCR for scans.
+pymupdf==1.26.5
 
 # --- dev / test ---
 pytest==8.3.4

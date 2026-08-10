@@ -18,7 +18,7 @@ class MedicalReport {
     this.insights = const [],
     this.ocrConfidence,
     this.sha256,
-    this.isDemoMatched = false,
+    this.fromCache = false,
   });
 
   final String id;
@@ -35,7 +35,7 @@ class MedicalReport {
   final List<ReportFinding> findings;
   final bool hasRiskFinding;
 
-  /// Prescription medicines extracted by the OCR pipeline (or the demo OCR
+  /// Prescription medicines extracted by the OCR pipeline (or reused from
   /// cache). Empty for non-prescription reports / when nothing was extracted.
   final List<PrescriptionMedicine> medicines;
 
@@ -49,9 +49,10 @@ class MedicalReport {
   /// Used to look up and persist results in [RxLocalStore].
   final String? sha256;
 
-  /// True when the result came from a demo/local cache match rather than
+  /// True when this analysis was reused from the local cache (the same
+  /// file was analysed before) rather than
   /// the offline fallback — means medicines are prescription-specific.
-  final bool isDemoMatched;
+  final bool fromCache;
 
   MedicalReport copyWith({
     ReportStatus? status,
@@ -64,7 +65,7 @@ class MedicalReport {
     List<String>? insights,
     double? ocrConfidence,
     String? sha256,
-    bool? isDemoMatched,
+    bool? fromCache,
   }) =>
       MedicalReport(
         id: id,
@@ -81,7 +82,7 @@ class MedicalReport {
         insights: insights ?? this.insights,
         ocrConfidence: ocrConfidence ?? this.ocrConfidence,
         sha256: sha256 ?? this.sha256,
-        isDemoMatched: isDemoMatched ?? this.isDemoMatched,
+        fromCache: fromCache ?? this.fromCache,
       );
 
   String get typeLabel => switch (type) {
@@ -107,7 +108,7 @@ class MedicalReport {
         'insights': insights,
         'ocrConfidence': ocrConfidence,
         'sha256': sha256,
-        'isDemoMatched': isDemoMatched,
+        'fromCache': fromCache,
       };
 
   static MedicalReport fromJson(Map<String, dynamic> j) => MedicalReport(
@@ -143,7 +144,10 @@ class MedicalReport {
             ((j['insights'] as List?) ?? const []).map((e) => '$e').toList(),
         ocrConfidence: (j['ocrConfidence'] as num?)?.toDouble(),
         sha256: j['sha256'] as String?,
-        isDemoMatched: (j['isDemoMatched'] as bool?) ?? false,
+        fromCache: (j['fromCache'] as bool?) ??
+            // Older persisted reports used the previous name.
+            (j['isDemoMatched'] as bool?) ??
+            false,
       );
 }
 

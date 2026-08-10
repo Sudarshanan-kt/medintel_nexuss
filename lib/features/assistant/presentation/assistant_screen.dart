@@ -942,7 +942,7 @@ class _TalkButtonState extends State<_TalkButton> {
 // Local-model status banner + help sheet
 // ─────────────────────────────────────────────────────────────────────────
 
-/// Shown when the backend's local model isn't answering, so the demo
+/// Shown when no model is answering, so the assistant
 /// responses are explained rather than mistaken for the real assistant.
 class _OfflineModelBanner extends StatelessWidget {
   const _OfflineModelBanner({required this.onTap});
@@ -986,7 +986,7 @@ class _OfflineModelBanner extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Using demo responses',
+                          'Assistant unavailable',
                           style: AppTypography.labelMd
                               .copyWith(color: Colors.white, fontSize: 13),
                         ),
@@ -1117,8 +1117,9 @@ class _LocalModelSheetState extends ConsumerState<_LocalModelSheet> {
                       : 'Replies come from the model on the machine running '
                           'the backend. Install the on-device model to make '
                           'the assistant work without it.')
-                  : 'The assistant is falling back to demo responses. Either '
-                      'install the on-device model, or start the backend:',
+                  : "No model is answering, so the assistant won't reply "
+                      'until one is running. Either install the on-device '
+                      'model, or start the backend:',
               style: AppTypography.bodyMd.copyWith(
                 color: Colors.white.withValues(alpha: 0.65),
                 height: 1.5,

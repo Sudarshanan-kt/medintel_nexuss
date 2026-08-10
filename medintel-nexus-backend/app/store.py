@@ -83,8 +83,22 @@ _reports: Dict[str, ReportRecord] = {}
 
 
 def create_upload(
-    user_id: str, file_name: str, mime_type: str, size_bytes: int
+    user_id: str,
+    file_name: str,
+    mime_type: str,
+    size_bytes: int,
+    base_url: str = "http://localhost:8000",
 ) -> UploadRecord:
+    """Issues an upload ticket.
+
+    [base_url] must be the address the *client* can reach this server on,
+    not the address the server knows itself by. Hardcoding localhost here
+    worked from a simulator on the same machine and silently broke every
+    upload from a real phone, where "localhost" is the phone itself — the
+    client PUTs the bytes to this URL, so it has to be routable from there.
+    Callers pass the incoming request's own base URL, which is by definition
+    an address the client just reached.
+    """
     upload_id = f"up_{uuid.uuid4().hex[:12]}"
     record = UploadRecord(
         id=upload_id,
@@ -92,7 +106,7 @@ def create_upload(
         file_name=file_name,
         mime_type=mime_type,
         size_bytes=size_bytes,
-        signed_url=f"http://localhost:8000/dev-storage/{upload_id}",
+        signed_url=f"{base_url.rstrip('/')}/dev-storage/{upload_id}",
     )
     _uploads[upload_id] = record
     return record

@@ -105,4 +105,11 @@ abstract final class AppColors {
   /// decorative medical imagery sit behind content without competing with
   /// it. Kept as a token so the "very low opacity" intent can't drift.
   static const Color headerWash = Color(0xFFEAF3F1);
+
+  /// Tint for the floating medical motifs drifting behind every screen.
+  /// Deliberately a desaturated blue-grey rather than the brand green: at
+  /// the opacities these are drawn at, a saturated hue reads as a colour
+  /// cast over the whole page instead of as separate shapes.
+  static const Color motifTint = Color(0xFFB9D2E4);
+  static const Color darkMotifTint = Color(0xFF7FA8C6);
 }

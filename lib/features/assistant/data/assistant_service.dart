@@ -231,75 +231,28 @@ call emergency services now.''';
     }
   }
 
-  String _fallback(String prompt, AssistantLanguage lang) {
-    final p = prompt.toLowerCase().trim();
-
-    String pick(List<String> en, List<String> ta, List<String> hi) {
-      final list = switch (lang) {
-        AssistantLanguage.english => en,
-        AssistantLanguage.tamil => ta,
-        AssistantLanguage.hindi => hi,
+  /// What the assistant says when no model answered.
+  ///
+  /// This used to return canned replies — including invented drug advice
+  /// ("Ibuprofen with Warfarin can bump up bleeding risk… I'd lean towards
+  /// paracetamol") and a greeting addressed to a hardcoded name. A patient
+  /// cannot tell a fabricated answer from a real one, and an assistant that
+  /// invents clinical guidance whenever the model is unreachable is worse
+  /// than one that admits it is unreachable.
+  ///
+  /// So it says nothing about the question. The caller is offline, and that
+  /// is the only fact available.
+  String _fallback(String prompt, AssistantLanguage lang) => switch (lang) {
+        AssistantLanguage.english =>
+          "I can't reach the assistant right now, so I won't guess at an "
+              'answer. Check that the model is running, then ask me again.',
+        AssistantLanguage.tamil =>
+          'இப்போது உதவியாளரை அணுக முடியவில்லை. ஊகித்து பதில் சொல்ல '
+              'விரும்பவில்லை. மாடல் இயங்குகிறதா என பார்த்துவிட்டு மீண்டும் கேளுங்கள்.',
+        AssistantLanguage.hindi =>
+          'अभी असिस्टेंट से संपर्क नहीं हो पा रहा, इसलिए मैं अंदाज़े से जवाब '
+              'नहीं दूँगा। मॉडल चल रहा है या नहीं देखकर दोबारा पूछें।',
       };
-      return list[DateTime.now().millisecondsSinceEpoch % list.length];
-    }
-
-    if (RegExp(r'\b(hi|hello|hey|namaste|vanakkam|வணக்கம்|नमस्ते)\b')
-        .hasMatch(p)) {
-      return pick(
-        [
-          "Hi Aravind. What's on your mind today?",
-          "Hey — anything you'd like me to look up about your prescriptions?",
-        ],
-        [
-          'வணக்கம் அரவிந்த். இன்று என்ன கேக்கணும்?',
-          'ஹாய், என்ன உதவி வேண்டும்?',
-        ],
-        ['नमस्ते अरविंद, क्या मदद चाहिए?'],
-      );
-    }
-
-    if (p.contains('ibuprofen') ||
-        p.contains('warfarin') ||
-        p.contains('interaction')) {
-      return pick(
-        [
-          "Ibuprofen with Warfarin can bump up bleeding risk — that's why I'd lean towards paracetamol for pain. But please run any switch by your doctor first.",
-        ],
-        [
-          'வார்ஃபரின் உடன் ஐபுப்ரோஃபன் சேர்த்தா ரத்தப்போக்கு ரிஸ்க் கூடிடும். வலி இருக்கா? பாராசிட்டமால் சேஃபா இருக்கும். ஆனா மாற்றுவதுக்கு முன்னாடி டாக்டரிடம் கேக்கணும்.',
-        ],
-        [
-          'वारफरिन के साथ इबुप्रोफेन से ब्लीडिंग बढ़ सकती है। दर्द हो तो पैरासिटामॉल बेहतर — पर बदलाव से पहले डॉक्टर से पूछो।',
-        ],
-      );
-    }
-
-    if (p.contains('adherence') || p.contains('missed') || p.contains('dose')) {
-      return pick(
-        [
-          'Check the Reminders tab for your real adherence streak and weekly percentage. If you miss a dose, take it as soon as you remember, unless the next dose is close — never double up.',
-        ],
-        [
-          'உங்க உண்மையான டோஸ் கடைப்பிடிப்பு streak & வார சதவீதத்தை Reminders tab-ல பாருங்க. ஒரு டோஸ் தவறிட்டா, அடுத்த நேரம் வெகுதூரம் இல்லைன்னா உடனே எடுத்துக்கங்க. டபுள் வேண்டாம்.',
-        ],
-        [
-          'अपनी असली adherence streak और साप्ताहिक प्रतिशत के लिए Reminders टैब देखें। खुराक छूट गई तो जल्दी ले लो, पर अगली खुराक नज़दीक हो तो डबल मत करना।',
-        ],
-      );
-    }
-
-    return pick(
-      [
-        "I hear you. To answer properly I'd want to look at your latest scan or report — want me to pull that up?",
-        "Tell me a bit more — is this about a medicine you've been prescribed, a lab value, or something you're feeling right now?",
-      ],
-      [
-        'புரியுது. சரியான பதில் சொல்ல சமீபத்திய ஸ்கேன் அல்லது அறிக்கையை பார்க்கணும். எடுக்கட்டுமா?',
-        'கொஞ்சம் மேலே சொல்லுங்க — மருந்து பத்தியா, ஆய்வக மதிப்பு பத்தியா, அல்லது இப்போ உடம்பு எப்படி இருக்கு?',
-      ],
-      ['समझ गया, थोड़ी और बात बताओ — दवा, रिपोर्ट या तबियत?'],
-    );
-  }
 }
 
 final assistantServiceProvider = Provider<AssistantService>((ref) {
