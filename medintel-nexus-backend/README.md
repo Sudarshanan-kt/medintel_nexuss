@@ -29,8 +29,17 @@ python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Run
-uvicorn main:app --reload --port 8000
+./scripts/run.sh                 # or: uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+`--host 0.0.0.0` is not optional if a phone is involved. Uvicorn's default is
+`127.0.0.1`, which accepts connections from this machine and nothing else —
+the API answers `curl localhost:8000` perfectly while every request from the
+phone is refused at the TCP level, on every Wi-Fi network. The app's own LAN
+sweep can't find a server that isn't listening on the LAN either, so the
+symptom is "pharmacies, generic swap and symptom check don't work here",
+with no error pointing at the cause. `scripts/run.sh` binds correctly and
+prints the URL the phone should use.
 
 Check both halves are up:
 
@@ -43,8 +52,22 @@ curl localhost:8000/health/llm   # the model — says what's wrong if it isn't
 design. A scan that comes back "couldn't read this" looks identical whether
 the photo was bad or `ollama serve` isn't running; this tells you which.
 
-On a USB-connected phone, `adb reverse tcp:8000 tcp:8000` lets the app reach
-this backend over the cable.
+Then confirm the phone's view of it, from another machine on the same Wi-Fi:
+
+```bash
+curl http://<this-machine's-LAN-IP>:8000/health
+```
+
+If that refuses while `localhost` works, the bind address is wrong. If it
+hangs instead, a firewall or the router's client isolation is in the way.
+
+## Reaching it from a phone
+
+| Phone is on | What works |
+|---|---|
+| Same Wi-Fi as this machine | Bind `0.0.0.0`; the app finds it by sweeping the subnet |
+| USB cable | `adb reverse tcp:8000 tcp:8000` — the app reaches it at `localhost:8000` |
+| Mobile data | Nothing local. The phone has no route to a LAN address; this needs a tunnel (`cloudflared tunnel --url http://localhost:8000`) or a real deployment, with the resulting public URL set in the app's server setting |
 
 ## Configuration
 

@@ -35,6 +35,19 @@ class NearbyResult {
   final List<Pharmacy> pharmacies;
 }
 
+/// A search that couldn't be completed, carrying something worth showing the
+/// user.
+///
+/// [toString] is the message alone, with no `Exception:` prefix, because the
+/// screen renders it directly.
+class PharmacySearchException implements Exception {
+  const PharmacySearchException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Finds real pharmacies around the user.
 ///
 /// The device reads its own position and hands it to this app's backend,
@@ -80,19 +93,39 @@ class PharmacyService {
   Future<NearbyResult> findNearby({double radiusMeters = 3000}) async {
     final center = await _resolveLocation();
 
-    final res = await _dio.get<Map<String, dynamic>>(
-      ApiEndpoints.pharmaciesNearby,
-      queryParameters: {
-        'lat': center.latitude,
-        'lon': center.longitude,
-        'radius_m': radiusMeters.round(),
-      },
-      options: Options(receiveTimeout: const Duration(seconds: 40)),
-    );
+    final Response<Map<String, dynamic>> res;
+    try {
+      res = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.pharmaciesNearby,
+        queryParameters: {
+          'lat': center.latitude,
+          'lon': center.longitude,
+          'radius_m': radiusMeters.round(),
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 40)),
+      );
+    } on DioException catch (e) {
+      // The lookup runs on this app's backend so the patient's coordinates
+      // aren't handed to a third party — which means no backend, no search.
+      // Say so, rather than showing a raw DioException: "couldn't reach the
+      // server" and "the search failed" send someone to different places.
+      if (e.response == null) {
+        throw const PharmacySearchException(
+          "Couldn't reach the MedIntel server, so the pharmacy search "
+          "couldn't run. Check that it's running and that this phone is on "
+          'the same Wi-Fi as it.',
+        );
+      }
+      throw const PharmacySearchException(
+        'The pharmacy search failed on the server. Try again in a moment.',
+      );
+    }
 
     final data = res.data?['data'];
     if (data is! Map || data['searched'] != true) {
-      throw Exception('Pharmacy search is unavailable right now.');
+      throw const PharmacySearchException(
+        'Pharmacy search is unavailable right now.',
+      );
     }
 
     return NearbyResult(

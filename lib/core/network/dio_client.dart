@@ -17,11 +17,29 @@ final secureStorageProvider = Provider<FlutterSecureStorage>(
 /// The access token is read from the active Supabase session on every request.
 /// Supabase SDK handles token refresh automatically via its internal JWT logic;
 /// this interceptor just attaches the current session token.
+/// Marks a request that has already been retried after re-detecting the
+/// server, so a genuinely down backend fails once instead of looping.
+const String _rediscoveredKey = 'medintel_rediscovered';
+
+/// Whether nothing answered at all, as opposed to a server that answered
+/// with an error. Only the former is worth going to look for the server
+/// over: a 500 means we found it just fine.
+bool _isUnreachable(DioException e) {
+  if (e.response != null) return false;
+  return e.type == DioExceptionType.connectionError ||
+      e.type == DioExceptionType.connectionTimeout;
+}
+
 final dioClientProvider = Provider<Dio>((ref) {
   // Watched, not read: changing the server address in settings rebuilds
   // this client, so the next request goes to the new host without a
   // restart.
   final baseUrl = ref.watch(serverConfigProvider);
+
+  // Read, not watched: re-detecting the server changes the address, which
+  // disposes this provider — so the error interceptor, which outlives that,
+  // must not touch `ref`. The notifier itself survives the rebuild.
+  final serverConfig = ref.read(serverConfigProvider.notifier);
 
   final dio = Dio(
     BaseOptions(
@@ -45,6 +63,26 @@ final dioClientProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) async {
+        // Nothing answered. Usually the backend moved with the network —
+        // a new Wi-Fi, a new DHCP lease — and the stored address now points
+        // at a host that isn't there. Re-detect and replay the request once,
+        // so the feature recovers on its own instead of showing an error
+        // until the app is restarted.
+        if (_isUnreachable(error) &&
+            error.requestOptions.extra[_rediscoveredKey] != true) {
+          final req = error.requestOptions;
+          req.extra[_rediscoveredKey] = true;
+          if (await serverConfig.ensureReachable()) {
+            req.baseUrl = serverConfig.baseUrl;
+            try {
+              return handler.resolve(await dio.fetch<dynamic>(req));
+            } on DioException catch (retryFailure) {
+              return handler.next(retryFailure);
+            }
+          }
+          return handler.next(error);
+        }
+
         if (error.response?.statusCode == 401) {
           // Attempt to refresh via Supabase SDK.
           try {

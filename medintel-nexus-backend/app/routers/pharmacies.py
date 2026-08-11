@@ -37,7 +37,25 @@ router = APIRouter(prefix="/pharmacies", tags=["pharmacies"])
 _ENDPOINTS = (
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 )
+
+# Per-mirror budget. Overpass is donated infrastructure and its mirrors fail
+# in two ways: a fast 503/504 when overloaded, or no answer at all when the
+# caller's network can't route to them (some ISPs reach only one of these).
+# A generous per-request timeout means one unroutable mirror consumes the
+# whole search, so each gets a short slice instead.
+_MIRROR_TIMEOUT_SECONDS = 10.0
+
+# Ceiling for the entire lookup, mirrors and retries included. Must stay
+# comfortably under the client's own receive timeout — a backend that is
+# still trying after the app has given up helps nobody. See
+# `PharmacyService.findNearby`.
+_TOTAL_BUDGET_SECONDS = 32.0
+
+# Overloaded mirrors are the normal case, not an exceptional one, so the
+# healthy mirror is worth asking twice before declaring the search failed.
+_ATTEMPTS_PER_MIRROR = 2
 
 # ~0.005 degrees of latitude is roughly 550 m, so a snapped centre is at
 # most ~390 m from the real one. Against a multi-kilometre search radius
@@ -136,23 +154,40 @@ def _parse(payload: dict) -> List[dict]:
 
 async def _query_overpass(lat: float, lon: float, radius_m: int) -> Optional[List[dict]]:
     """Returns None when every mirror failed, so the caller can say the
-    search didn't run rather than that there are no pharmacies nearby."""
+    search didn't run rather than that there are no pharmacies nearby.
+
+    Each mirror is tried more than once. A 504 from Overpass means it was too
+    busy this second, not that the data is missing, and a single one used to
+    be enough to fail the whole search — the user saw "pharmacy search is
+    unavailable" for something that succeeds on the next attempt.
+    """
     query = _build_query(lat, lon, radius_m)
-    async with httpx.AsyncClient(timeout=30) as client:
-        for url in _ENDPOINTS:
-            try:
-                response = await client.post(
-                    url,
-                    content=f"data={query}",
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "User-Agent": _USER_AGENT,
-                    },
-                )
-                response.raise_for_status()
-                return _parse(response.json())
-            except Exception:
-                logger.warning("Overpass mirror failed: %s", url, exc_info=True)
+    deadline = time.monotonic() + _TOTAL_BUDGET_SECONDS
+
+    async with httpx.AsyncClient(timeout=_MIRROR_TIMEOUT_SECONDS) as client:
+        for attempt in range(_ATTEMPTS_PER_MIRROR):
+            for url in _ENDPOINTS:
+                if time.monotonic() >= deadline:
+                    logger.warning("Overpass lookup out of time after %ss",
+                                   _TOTAL_BUDGET_SECONDS)
+                    return None
+                try:
+                    response = await client.post(
+                        url,
+                        # Let httpx form-encode it. The query contains
+                        # characters that have meaning in a form body.
+                        data={"data": query},
+                        headers={"User-Agent": _USER_AGENT},
+                    )
+                    response.raise_for_status()
+                    return _parse(response.json())
+                except Exception as exc:
+                    logger.warning(
+                        "Overpass mirror failed (attempt %d): %s — %s",
+                        attempt + 1,
+                        url,
+                        exc,
+                    )
     return None
 
 

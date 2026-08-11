@@ -5,6 +5,8 @@ coarse enough to lose nearby results — the feature would either leak the
 patient's position or quietly return the wrong shops. Both are tested here.
 """
 
+import urllib.parse
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -28,13 +30,21 @@ def dev_auth(monkeypatch):
 
 @pytest.fixture
 def overpass(monkeypatch):
-    """Stands in for Overpass and records exactly what it was sent."""
+    """Stands in for Overpass and records exactly what it was sent.
+
+    Records the Overpass query itself rather than the raw body, so these
+    tests assert on what was asked for and not on how it happened to be
+    form-encoded on the wire.
+    """
     seen = []
 
-    def install(elements, fail=False):
+    def install(elements, fail=False, fail_first=0):
         def handler(request: httpx.Request) -> httpx.Response:
-            seen.append(request.content.decode())
-            if fail:
+            body = urllib.parse.parse_qs(request.content.decode())
+            seen.append(body["data"][0])
+            # `fail_first` models the common case: Overpass is overloaded for
+            # the first attempt or two, then answers.
+            if fail or len(seen) <= fail_first:
                 return httpx.Response(504)
             return httpx.Response(200, json={"elements": elements})
 
@@ -192,19 +202,50 @@ class TestFailure:
         assert data["searched"] is False
         assert data["pharmacies"] == []
 
+    def test_a_busy_mirror_is_tried_again_rather_than_failing_the_search(
+        self, overpass
+    ):
+        """A 504 means Overpass was too busy this second, not that there are
+        no pharmacies nearby.
+
+        Giving up on the first one is what made this feature look broken:
+        the mirrors return 504 often, and the user got "search unavailable"
+        for a query that succeeds on the very next attempt.
+        """
+        overpass([_node("Apollo Pharmacy", 13.0836, 80.2707)], fail_first=1)
+
+        res = client.get(
+            "/api/v1/pharmacies/nearby",
+            params={"lat": EXACT_LAT, "lon": EXACT_LON},
+            headers=AUTH,
+        )
+
+        data = res.json()["data"]
+        assert data["searched"] is True
+        assert [p["name"] for p in data["pharmacies"]] == ["Apollo Pharmacy"]
+
     def test_a_failed_search_is_not_cached(self, overpass):
         """Caching an outage would keep the feature broken for a day."""
         seen = overpass([], fail=True)
 
-        for _ in range(2):
+        def search():
             client.get(
                 "/api/v1/pharmacies/nearby",
                 params={"lat": EXACT_LAT, "lon": EXACT_LON},
                 headers=AUTH,
             )
 
-        # Two mirrors attempted per request, both times.
-        assert len(seen) == 4
+        search()
+        after_first = len(seen)
+        assert after_first > 0
+
+        search()
+
+        # The second search queried again rather than being served a cached
+        # outage. Expressed as "it tried again", not as a fixed count, so
+        # changing how many mirrors or retries a search uses doesn't break
+        # the thing actually being tested.
+        assert len(seen) == after_first * 2
 
     def test_nonsense_coordinates_are_rejected(self):
         res = client.get(

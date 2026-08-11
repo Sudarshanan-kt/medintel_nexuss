@@ -116,7 +116,13 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   }
 
   Future<void> _save() async {
-    await ref.read(serverConfigProvider.notifier).setBaseUrl(_controller.text);
+    // Typed in, so it stays put: automatic detection can only find a backend
+    // on the current LAN, and would otherwise quietly overwrite a Tailscale
+    // or tunnel address that was set precisely because it works off-LAN.
+    await ref.read(serverConfigProvider.notifier).setBaseUrl(
+          _controller.text,
+          chosenByUser: true,
+        );
     if (mounted) Navigator.of(context).pop();
   }
 
