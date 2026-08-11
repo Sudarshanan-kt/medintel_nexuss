@@ -27,13 +27,16 @@ Every layer follows the dependency rule **presentation → application → domai
 
 ## Running it
 
+The app is one half of the system; the other is the FastAPI backend in
+`medintel-nexus-backend/`, which runs the OCR pipeline and the local model.
+Both have to be up. **See [RUNNING.md](RUNNING.md)** for starting them, for
+reaching the backend from a phone on Wi-Fi, USB or mobile data, and for
+which features need the model.
+
 ```bash
 flutter pub get
-flutter run            # mobile
-flutter run -d chrome  # web dashboard mode (responsive shell flips to side nav)
+flutter run            # with a device attached
 ```
-
-The auth flow accepts **any 6-digit OTP** in demo mode (`AuthRepositoryImpl`). Swap the bodies for real Dio calls against `ApiEndpoints` for production — the interface, the controller and every screen stay untouched.
 
 ## Where to look first
 
