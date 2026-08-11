@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/network/server_config.dart';
 import '../../../core/services/biometric_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -42,6 +43,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat();
+
+    // Build the server config now rather than lazily on the first request.
+    //
+    // Riverpod providers are created on first read, and nothing reads this
+    // one until a repository makes a call — so its "is the stored address
+    // still right?" check (which re-finds the backend after a Wi-Fi change)
+    // only ran *after* a request had already failed. Warming it here means
+    // the sweep happens during the splash, and the first real request goes
+    // to an address that works.
+    ref.read(serverConfigProvider);
 
     // Wait for auth to resolve, then run biometric gate (if needed).
     Future<void>.delayed(AppConstants.splashHold, _resolveAuth);

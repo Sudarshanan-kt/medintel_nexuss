@@ -26,7 +26,17 @@ Future<void> _pump(WidgetTester tester, Widget screen) {
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: screen,
+        // The decorative medical motifs behind these screens drift on a
+        // repeating ticker, and `pumpAndSettle` waits for every animation to
+        // stop — which an indefinite one never does. Turning animations off is
+        // what a real user with "reduce motion" gets, and the backdrop honours
+        // that flag by parking itself at rest.
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: screen,
+          ),
+        ),
       ),
     ),
   );

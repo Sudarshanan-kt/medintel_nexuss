@@ -201,6 +201,22 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     }
   }
 
+  /// Runs the analysis again for a report that previously failed.
+  ///
+  /// Failure here is usually environmental rather than a property of the
+  /// document — the backend wasn't running, or the laptop's LAN address
+  /// changed — so a retry after fixing that should succeed with no need to
+  /// re-upload the file.
+  Future<void> retryAnalysis(String id) async {
+    final report = _getById(id);
+    if (report == null || report.fileRef == null) return;
+    state = [
+      for (final r in state)
+        if (r.id == id) r.copyWith(status: ReportStatus.processing) else r,
+    ];
+    await _analyze(id);
+  }
+
   // ── Internal analysis pipeline ────────────────────────────────────────────
 
   /// Budget for the *cached* lookup below, which is local and should be
@@ -218,7 +234,7 @@ class ReportsController extends Notifier<List<MedicalReport>> {
   /// rendered "No structured data extracted". It must stay at or above
   /// `ReportAnalysisRepository`'s own polling ceiling (~3 min), or the
   /// client gives up while the server is still working.
-  static const _realAnalysisDeadline = Duration(minutes: 4);
+  static const _realAnalysisDeadline = Duration(minutes: 6);
 
   Future<void> _analyze(String id, {String? sha256}) async {
     _log('START id=$id sha256=${sha256?.substring(0, 8)}…');
@@ -314,7 +330,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
       ocrConfidence: outcome.confidence,
     );
     state = [
-      for (final r in state) if (r.id == id) finished else r,
+      for (final r in state)
+        if (r.id == id) finished else r,
     ];
     _log('DONE (real) status=analyzed metrics=${outcome.metrics.length} '
         'findings=${outcome.findings.length} advice=${outcome.insights.length}');
@@ -334,7 +351,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
     if (sha256 == null) return (null, false);
 
     try {
-      final cached = await ref.read(rxLocalStoreProvider).lookup(sha256).timeout(
+      final cached =
+          await ref.read(rxLocalStoreProvider).lookup(sha256).timeout(
         const Duration(seconds: 4),
         onTimeout: () {
           _log('rxLocalStore.lookup TIMED OUT');
@@ -369,7 +387,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
           : report.copyWith(status: ReportStatus.failed);
 
       state = [
-        for (final r in state) if (r.id == id) finished else r,
+        for (final r in state)
+          if (r.id == id) finished else r,
       ];
       _log('DONE status=analyzed matched=${cached != null} '
           'metrics=${cached?.metrics.length ?? 0} '
@@ -379,7 +398,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
       _log('APPLY ERROR: $e\n$st — falling back to empty analyzed');
       finished = report.copyWith(status: ReportStatus.analyzed);
       state = [
-        for (final r in state) if (r.id == id) finished else r,
+        for (final r in state)
+          if (r.id == id) finished else r,
       ];
     }
     _persistLocal();
@@ -403,7 +423,8 @@ class ReportsController extends Notifier<List<MedicalReport>> {
         summary: cached.summary,
         metrics: cached.metrics,
         findings: cached.findings,
-        hasRiskFinding: cached.hasRisk || cached.metrics.any((m) => m.isOutOfRange),
+        hasRiskFinding:
+            cached.hasRisk || cached.metrics.any((m) => m.isOutOfRange),
         medicines: cached.medicines,
         insights: cached.insights,
         ocrConfidence: cached.confidence,
@@ -428,4 +449,3 @@ final reportsControllerProvider =
     NotifierProvider<ReportsController, List<MedicalReport>>(
   ReportsController.new,
 );
-

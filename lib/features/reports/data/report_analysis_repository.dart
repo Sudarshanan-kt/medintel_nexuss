@@ -55,10 +55,11 @@ class ReportAnalysisRepository {
 
   static const Duration _pollInterval = Duration(seconds: 2);
 
-  // ~3min ceiling, matching the prescription pipeline. A lab report is the
-  // longest structured response the backend's local model produces, so this
-  // is the flow most likely to outrun a ceiling tuned for a hosted model.
-  static const int _maxPolls = 90;
+  // ~5min ceiling. A real multi-page panel is structured a chunk at a time
+  // (see `_MAX_REPORT_CHARS_PER_CALL` in the backend's ocr.py), which
+  // measured at 178s end to end for a 6-page report — the previous 3min
+  // ceiling would have cut that off just before it finished.
+  static const int _maxPolls = 150;
 
   Future<Result<ReportAnalysisOutcome>> analyzeReport({
     required String imagePath,

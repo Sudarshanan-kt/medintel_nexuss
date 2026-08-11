@@ -23,6 +23,7 @@ isn't sure about rather than silently acting on a misread drug name. See
 [field_confidence] for how a per-field number is derived.
 """
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -542,17 +543,164 @@ Respond with ONLY a JSON object, no other text, matching exactly this shape:
 }"""
 
 
+# How much report text goes into one structuring call.
+#
+# This is the most important number in this module. A real multi-page lab PDF
+# runs to ~12k characters, and handing all of it over in one call returns an
+# *empty* result: the model is served a context window far smaller than its
+# 32k maximum (Ollama's default), the input is silently truncated, and what
+# survives isn't a report any more. It fails quietly — valid JSON with empty
+# arrays — which is indistinguishable from "this document has no lab values"
+# unless you go looking.
+#
+# Measured on a real 6-page panel: 12,010 chars -> 0 metrics; 3,000 -> 3;
+# 1,500 -> 2. Small inputs also extract more densely, because the model isn't
+# trying to hold six pages at once.
+#
+# Chunking rather than raising the server's context window keeps this working
+# against any OpenAI-compatible backend (vLLM, LM Studio, llama.cpp), which is
+# the portability `config.py` is explicitly written for.
+_MAX_REPORT_CHARS_PER_CALL = 2800
+
+_SUMMARY_SYSTEM_PROMPT = """You write one or two plain-language sentences \
+describing the overall picture of a set of lab results. You are given the \
+already-extracted values as JSON. Say what is outside its reference range and \
+what is normal. Be accurate about direction: a value above its reference high \
+is HIGH, below its reference low is LOW — never describe a high value as low. \
+You are not a doctor and must never state or imply a diagnosis. Respond with \
+ONLY a JSON object: {"summary": "<string>"}"""
+
+
+def _chunk_report(text: str, limit: int) -> List[str]:
+    """Splits [text] into chunks of at most [limit] characters, breaking only
+    on line boundaries.
+
+    Lab reports are line-oriented — one test, its value and its reference
+    range per line — so splitting mid-line would hand the model a value whose
+    range lives in the next chunk, and it would either invent one or drop the
+    row entirely.
+    """
+    chunks: List[str] = []
+    current: List[str] = []
+    size = 0
+    for line in text.splitlines():
+        if size + len(line) + 1 > limit and current:
+            chunks.append("\n".join(current))
+            current, size = [], 0
+        current.append(line)
+        size += len(line) + 1
+    if current:
+        chunks.append("\n".join(current))
+    return chunks or [text]
+
+
+def _merge_report_parts(parts: List[dict]) -> dict:
+    """Unions the per-chunk results, keeping the first occurrence of each.
+
+    Pages repeat headers and footers, and a test can appear twice (once in a
+    table, once in an interpretation block), so dedupe by the identity a
+    reader would use: the test's own label.
+    """
+    metrics: List[dict] = []
+    findings: List[dict] = []
+    advice: List[dict] = []
+    seen_metric: set = set()
+    seen_finding: set = set()
+    seen_advice: set = set()
+
+    for part in parts:
+        for m in part.get("metrics") or []:
+            key = str(m.get("label") or "").strip().lower()
+            if not key or key in seen_metric:
+                continue
+            seen_metric.add(key)
+            metrics.append(m)
+        for f in part.get("findings") or []:
+            key = str(f.get("text") or "").strip().lower()
+            if not key or key in seen_finding:
+                continue
+            seen_finding.add(key)
+            findings.append(f)
+        for a in part.get("advice") or []:
+            key = str(a.get("label") or "").strip().lower()
+            if not key or key in seen_advice:
+                continue
+            seen_advice.add(key)
+            advice.append(a)
+
+    return {
+        "summary": "",
+        "metrics": metrics,
+        "findings": findings,
+        "advice": advice,
+    }
+
+
 async def structure_report(raw_text: str) -> Optional[dict]:
     """Turns [raw_text] into a structured report analysis using the local
     model. Returns None when the call itself failed — same
     checked/unchecked distinction as [structure_medicines].
+
+    Long reports are processed a chunk at a time and merged; see
+    [_MAX_REPORT_CHARS_PER_CALL] for why one big call cannot work.
     """
     if not raw_text.strip():
         return {"summary": "", "metrics": [], "findings": [], "advice": []}
 
-    return await llm.chat_json(
-        _REPORT_SYSTEM_PROMPT, raw_text, max_tokens=1800
+    chunks = _chunk_report(raw_text, _MAX_REPORT_CHARS_PER_CALL)
+
+    if len(chunks) == 1:
+        return await llm.chat_json(
+            _REPORT_SYSTEM_PROMPT, raw_text, max_tokens=1800
+        )
+
+    logger.info(
+        "Report is %s chars — structuring in %s chunks.",
+        len(raw_text),
+        len(chunks),
     )
+
+    parts: List[dict] = []
+    for index, chunk in enumerate(chunks):
+        part = await llm.chat_json(
+            _REPORT_SYSTEM_PROMPT, chunk, max_tokens=1800
+        )
+        if part is None:
+            # One bad chunk shouldn't lose the whole report — the other pages
+            # still carry real values.
+            logger.warning(
+                "Chunk %s of %s failed to structure.", index + 1, len(chunks)
+            )
+            continue
+        parts.append(part)
+
+    if not parts:
+        return None
+
+    merged = _merge_report_parts(parts)
+
+    # The per-chunk summaries each describe one page, so they can't be
+    # concatenated. One final pass over the merged values describes the report
+    # as a whole — a small, fast call, because the input is now just numbers.
+    if merged["metrics"]:
+        summary = await llm.chat_json(
+            _SUMMARY_SYSTEM_PROMPT,
+            json.dumps({"metrics": merged["metrics"]}),
+            max_tokens=300,
+        )
+        if summary:
+            merged["summary"] = str(summary.get("summary") or "")
+
+    if not merged["summary"]:
+        # Rather than ship a blank summary, fall back to the first chunk that
+        # produced one.
+        for part in parts:
+            text = str(part.get("summary") or "").strip()
+            if text:
+                merged["summary"] = text
+                break
+
+    return merged
 
 
 def aggregate_confidence(scored_fields: Sequence[Dict[str, float]]) -> float:

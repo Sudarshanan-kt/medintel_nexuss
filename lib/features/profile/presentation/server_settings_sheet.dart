@@ -36,6 +36,39 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
       TextEditingController(text: ref.read(serverConfigProvider));
   _ProbeState _probe = _ProbeState.idle;
   String? _detail;
+  bool _detecting = false;
+  int _detectPercent = 0;
+
+  /// Sweeps the current Wi-Fi for the backend and fills the field with what
+  /// it finds — so switching networks doesn't require knowing the laptop's
+  /// new IP address.
+  Future<void> _detect() async {
+    setState(() {
+      _detecting = true;
+      _detectPercent = 0;
+      _probe = _ProbeState.idle;
+      _detail = null;
+    });
+    final found = await ref.read(serverConfigProvider.notifier).autoDetect(
+      onProgress: (done, total) {
+        if (!mounted) return;
+        setState(() => _detectPercent = (done * 100 / total).round());
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _detecting = false;
+      if (found != null) {
+        _controller.text = found;
+        _probe = _ProbeState.reachable;
+      } else {
+        _probe = _ProbeState.unreachable;
+        _detail = 'No backend answered on this network. Check it is running '
+            'with --host 0.0.0.0, and that the phone is on the same Wi-Fi '
+            '(not mobile data).';
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -66,8 +99,10 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
       if (!mounted) return;
       setState(() {
         _probe = ok ? _ProbeState.reachable : _ProbeState.unreachable;
-        _detail = ok ? null : 'Something answered, but it isn\'t this app\'s '
-            'backend.';
+        _detail = ok
+            ? null
+            : 'Something answered, but it isn\'t this app\'s '
+                'backend.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -81,9 +116,7 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   }
 
   Future<void> _save() async {
-    await ref
-        .read(serverConfigProvider.notifier)
-        .setBaseUrl(_controller.text);
+    await ref.read(serverConfigProvider.notifier).setBaseUrl(_controller.text);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -158,11 +191,9 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
                   Expanded(
                     child: SecondaryButton(
                       icon: Icons.wifi_tethering_rounded,
-                      label: _probe == _ProbeState.testing
-                          ? 'Testing…'
-                          : 'Test',
-                      onPressed:
-                          _probe == _ProbeState.testing ? null : _test,
+                      label:
+                          _probe == _ProbeState.testing ? 'Testing…' : 'Test',
+                      onPressed: _probe == _ProbeState.testing ? null : _test,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -176,6 +207,27 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
+              // The address changes with every network, so finding it should
+              // not be the user's job. This sweeps the Wi-Fi they're on.
+              Center(
+                child: TextButton.icon(
+                  onPressed: _detecting ? null : _detect,
+                  icon: _detecting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.radar_rounded, size: 18),
+                  label: Text(
+                    _detecting
+                        ? 'Searching this network… $_detectPercent%'
+                        : 'Find the server on this Wi-Fi',
+                    style: AppTypography.labelMd
+                        .copyWith(color: AppColors.primary),
+                  ),
+                ),
+              ),
               Center(
                 child: TextButton(
                   onPressed: () async {
@@ -236,9 +288,7 @@ class _ProbeResult extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              testing
-                  ? 'Testing…'
-                  : detail ?? 'Backend reachable.',
+              testing ? 'Testing…' : detail ?? 'Backend reachable.',
               style: AppTypography.caption.copyWith(
                 color: testing
                     ? AppColors.textSecondary

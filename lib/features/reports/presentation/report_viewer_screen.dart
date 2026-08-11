@@ -71,8 +71,10 @@ class ReportViewerScreen extends ConsumerWidget {
                 PopupMenuItem(
                   value: _ViewerAction.delete,
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: AppColors.dangerDeep),
-                    title: Text('Delete', style: TextStyle(color: AppColors.dangerDeep)),
+                    leading:
+                        Icon(Icons.delete_outline, color: AppColors.dangerDeep),
+                    title: Text('Delete',
+                        style: TextStyle(color: AppColors.dangerDeep)),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -174,7 +176,8 @@ class ReportViewerScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hourglass_top_rounded, size: 48, color: AppColors.textSecondary),
+            Icon(Icons.hourglass_top_rounded,
+                size: 48, color: AppColors.textSecondary),
             SizedBox(height: 12),
             Text(
               'Loading report…',
@@ -201,7 +204,8 @@ class ReportViewerScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(99),
@@ -258,7 +262,8 @@ class ReportViewerScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: AppColors.tintGreen,
                   borderRadius: BorderRadius.circular(99),
@@ -313,9 +318,10 @@ class ReportViewerScreen extends ConsumerWidget {
                         Icon(
                           Icons.circle,
                           size: 8,
-                          color: f.severity == 'caution' || f.severity == 'severe'
-                              ? _danger
-                              : _primary,
+                          color:
+                              f.severity == 'caution' || f.severity == 'severe'
+                                  ? _danger
+                                  : _primary,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -441,40 +447,57 @@ class ReportViewerScreen extends ConsumerWidget {
           ),
         ],
 
-        // ── Empty state for reports with no extractable data ─────────────
+        // ── Nothing to show ──────────────────────────────────────────────
+        //
+        // Two very different situations used to render the same sentence,
+        // and conflating them is actively misleading — it sent us hunting
+        // for a better model when the real cause was an unreachable server:
+        //
+        //   failed   — analysis never produced an answer (server down, wrong
+        //              address, timeout). We know nothing about what the
+        //              document contains and must not imply we do.
+        //   analyzed — the pipeline ran and genuinely found no lab values,
+        //              which is normal for a discharge summary or a scan.
         if ((report.summary ?? '').isEmpty &&
             report.metrics.isEmpty &&
             report.findings.isEmpty &&
             report.insights.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 24),
-            child: _card(
-              const Column(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 40, color: AppColors.textSecondary),
-                  SizedBox(height: 12),
-                  Text(
-                    'No structured data extracted',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+            child: report.status == ReportStatus.failed
+                ? _analysisFailedCard(context, ref, report)
+                : _card(
+                    const Column(
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 40,
+                          color: AppColors.textSecondary,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'No lab values in this report',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'The document was read successfully but has no '
+                          'test results to chart. The full document is '
+                          'stored in your library.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'This report type may not produce lab values. '
-                    'The full document is stored in your library.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.5,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
       ],
     );
@@ -492,6 +515,66 @@ class ReportViewerScreen extends ConsumerWidget {
             letterSpacing: 0.8,
             color: _muted,
           ),
+        ),
+      );
+
+  /// Shown when analysis never returned an answer.
+  ///
+  /// States plainly that nothing was read, names the usual cause, and offers
+  /// a retry — the file is already uploaded, so a retry after starting the
+  /// backend costs nothing and needs no re-upload.
+  Widget _analysisFailedCard(
+    BuildContext context,
+    WidgetRef ref,
+    MedicalReport report,
+  ) =>
+      _card(
+        Column(
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 40,
+              color: AppColors.warningDeep,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Couldn't analyse this report",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'The analysis server never answered, so nothing was read from '
+              'this document — this is not a statement about its contents. '
+              'Check that the backend is running and that the server address '
+              'in Settings points at it, then try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: () {
+                ref
+                    .read(reportsControllerProvider.notifier)
+                    .retryAnalysis(report.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    content: Text('Re-analysing this report…'),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try again'),
+            ),
+          ],
         ),
       );
 
@@ -594,4 +677,3 @@ class ReportViewerScreen extends ConsumerWidget {
 }
 
 enum _ViewerAction { rename, delete }
-

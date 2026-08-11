@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_endpoints.dart';
+import 'server_discovery.dart';
 
 /// Where the app's backend lives, changeable without a rebuild.
 ///
@@ -17,6 +21,10 @@ import 'api_endpoints.dart';
 class ServerConfig extends Notifier<String> {
   static const _key = 'medintel_api_base_url';
 
+  /// True while [autoDetect] is sweeping the LAN, so the settings UI can show
+  /// progress instead of looking frozen.
+  bool isDetecting = false;
+
   @override
   String build() {
     _restore();
@@ -31,6 +39,61 @@ class ServerConfig extends Notifier<String> {
     } catch (_) {
       // Keep the compiled-in default; an unreadable preference store is not
       // a reason to fail to start.
+    }
+    // Whatever address we ended up with was correct on *some* network. The
+    // backend's IP moves with every Wi-Fi change, so confirm it still answers
+    // and go looking if it doesn't.
+    unawaited(_healOnWrongNetwork());
+  }
+
+  /// Silently re-points the app at the backend when the stored address is
+  /// stale — the "it only works on one Wi-Fi" case.
+  ///
+  /// Deliberately quiet: the address is a deployment detail, and a user who
+  /// switched networks has no reason to care that it changed. Anything found
+  /// here is persisted, so the next launch starts correct.
+  Future<void> _healOnWrongNetwork() async {
+    if (await _answers(state)) return;
+    final found = await ServerDiscovery.find();
+    if (found != null && found != state) await setBaseUrl(found);
+  }
+
+  /// Sweeps the current network for the backend and adopts it if found.
+  ///
+  /// Returns the address found, or null. Exposed for the settings screen's
+  /// "detect automatically" action.
+  Future<String?> autoDetect({
+    void Function(int done, int total)? onProgress,
+  }) async {
+    isDetecting = true;
+    try {
+      final found = await ServerDiscovery.find(onProgress: onProgress);
+      if (found != null) await setBaseUrl(found);
+      return found;
+    } finally {
+      isDetecting = false;
+    }
+  }
+
+  /// Whether [url] is this app's backend, right now.
+  static Future<bool> _answers(String url) async {
+    if (url.isEmpty) return false;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    try {
+      final req = await client
+          .getUrl(Uri.parse('$url/health'))
+          .timeout(const Duration(seconds: 3));
+      final res = await req.close().timeout(const Duration(seconds: 3));
+      if (res.statusCode != 200) return false;
+      final body = await res
+          .transform(const SystemEncoding().decoder)
+          .join()
+          .timeout(const Duration(seconds: 3));
+      return body.contains('ok');
+    } on Object {
+      return false;
+    } finally {
+      client.close(force: true);
     }
   }
 
