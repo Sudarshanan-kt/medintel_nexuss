@@ -61,12 +61,6 @@ enum QuickAction {
     icon: Icons.contact_emergency_rounded,
     tint: AppColors.tintRed,
     routePath: '/sos',
-  ),
-  symptomCheck(
-    label: 'Symptom\nCheck',
-    icon: Icons.fact_check_rounded,
-    tint: AppColors.tintViolet,
-    routePath: '/symptom-check',
   );
 
   const QuickAction({

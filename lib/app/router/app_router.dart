@@ -13,7 +13,6 @@ import '../../features/care_circle/presentation/patient_detail_screen.dart';
 import '../../features/dashboard/presentation/health_timeline_screen.dart';
 import '../../features/interactions/presentation/interaction_checker_screen.dart';
 import '../../features/reports/presentation/biomarker_trend_screen.dart';
-import '../../features/triage/presentation/triage_result_screen.dart';
 import '../../features/vitals/presentation/health_insights_screen.dart';
 import '../../features/auth/presentation/caregiver_login_screen.dart';
 import '../../features/auth/presentation/email_login_screen.dart';
@@ -130,11 +129,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.biomarkerTrends,
         pageBuilder: (_, s) =>
             _sharedAxis(s, const BiomarkerTrendScreen()),
-      ),
-      GoRoute(
-        path: Routes.symptomCheck,
-        pageBuilder: (_, s) =>
-            _sharedAxis(s, const TriageScreen()),
       ),
       GoRoute(
         path: '${Routes.inviteAccept}/:code',

@@ -1,4 +1,4 @@
-"""Assistant, narration and symptom-triage, all served by the local model.
+"""Assistant chat and narration, both served by the local model.
 
 These prompts used to live in the Flutter client, which called a hosted API
 directly with a key shipped inside the app bundle. Moving them here removes
@@ -170,60 +170,3 @@ async def narrate(
             "rephrased": rephrased,
         }
     )
-
-
-# ── Symptom triage ──────────────────────────────────────────────────────
-
-_TRIAGE_SYSTEM_PROMPT = """You run a short, adaptive symptom-triage \
-questionnaire for a patient. You are NOT a doctor and must NEVER name a \
-specific diagnosis or condition — only assess urgency and point to the right \
-next step. Reply with ONLY one strict JSON object, nothing else — no \
-markdown, no backticks, no text outside the JSON.
-
-Shape 1 — to ask a follow-up question (use short, plain language):
-{"type":"question","question":"<one short question>","options":["<opt1>","<opt2>","<opt3>"]}
-"options" must have between 2 and 5 short, tappable choices — never leave it \
-empty, never expect free-text input.
-
-Shape 2 — to conclude the triage (do this within 5 questions total, sooner \
-if you already have enough information):
-{"type":"result","urgency":"self_care","summary":"<1-2 sentences, no diagnosis, just what to do next>"}
-"urgency" must be exactly one of: "self_care", "see_doctor", "urgent", "emergency".
-
-Rules:
-- If at any point the description includes chest pain, severe or \
-uncontrolled bleeding, difficulty breathing, stroke symptoms (face drooping, \
-slurred speech, one-sided weakness), suicidal thoughts, or a severe allergic \
-reaction, immediately return a result with urgency "emergency" — do not ask \
-further questions.
-- Never state or imply what condition the patient has. Only urgency and \
-next-step guidance.
-- Ask exactly one question per turn.
-
-Keep the JSON keys and the urgency values in English exactly as specified, \
-whatever language the patient-facing text is written in."""
-
-
-class TriageStepRequest(BaseModel):
-    transcript: str = ""
-    language: str = "en"
-
-
-@router.post("/triage")
-async def triage_step(
-    body: TriageStepRequest, user_id: str = Depends(get_current_user_id)
-) -> dict:
-    """One turn of the structured triage flow.
-
-    Returns the model's raw JSON object under `step`, or null when the model
-    couldn't be reached or didn't answer with JSON at all. The client still
-    validates the shape — this only guarantees *some* object came back, not
-    that it's a usable turn.
-    """
-    step = await llm.chat_json(
-        _with_language(_TRIAGE_SYSTEM_PROMPT, body.language),
-        body.transcript or "Begin the triage. Ask your first question.",
-        temperature=0.2,
-        max_tokens=300,
-    )
-    return success({"step": step if isinstance(step, dict) else None})

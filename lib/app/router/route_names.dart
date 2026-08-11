@@ -36,7 +36,6 @@ abstract final class Routes {
   static const String savings = '/savings';
   static const String interactions = '/interactions';
   static const String biomarkerTrends = '/reports/trends';
-  static const String symptomCheck = '/symptom-check';
   static const String inviteAccept = '/invite'; // + /:code
   static String inviteAcceptCode(String code) => '/invite/$code';
 

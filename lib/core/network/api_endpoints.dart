@@ -56,9 +56,6 @@ abstract final class ApiEndpoints {
   /// `dashboard/application/insight_narrator.dart`.
   static const String assistantNarrate = '$apiV1/assistant/narrate';
 
-  /// One turn of the adaptive symptom-triage questionnaire.
-  static const String assistantTriage = '$apiV1/assistant/triage';
-
   // Savings
   static const String savingsGenerics = '$apiV1/savings/generics';
 

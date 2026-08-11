@@ -198,39 +198,6 @@ call emergency services now.''';
     }
   }
 
-  /// One step of the structured symptom-triage flow (see
-  /// `lib/features/triage/`). [transcript] is the plain-text record of
-  /// every question asked and answer chosen so far ("" for the first
-  /// call). Returns the raw JSON object the model replied with, or null
-  /// if it couldn't be reached or its reply didn't parse as JSON at all —
-  /// callers must still independently validate the shape, this method only
-  /// guarantees *some* JSON object came back, not that it's a valid turn.
-  ///
-  /// Deliberately separate from [reply]: triage output drives a UI flow
-  /// (urgency banners, next questions), so an unstructured free-text
-  /// response is useless here, unlike the open chat.
-  Future<Map<String, dynamic>?> triageStep({
-    required String transcript,
-    required AssistantLanguage language,
-  }) async {
-    try {
-      final res = await dio.post<Map<String, dynamic>>(
-        ApiEndpoints.assistantTriage,
-        options: Options(
-          receiveTimeout: const Duration(seconds: 60),
-          sendTimeout: const Duration(seconds: 10),
-        ),
-        data: {'transcript': transcript, 'language': language.code},
-      );
-
-      final step = _data(res)['step'];
-      return step is Map ? step.cast<String, dynamic>() : null;
-    } catch (e) {
-      debugPrint('Assistant triageStep failed: $e');
-      return null;
-    }
-  }
-
   /// What the assistant says when no model answered.
   ///
   /// This used to return canned replies — including invented drug advice
