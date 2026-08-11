@@ -60,27 +60,52 @@ class PharmacyService {
   PharmacyService(this._dio);
   final Dio _dio;
 
-  /// Default fallback location (used only if geolocation is denied/unavailable
-  /// so the demo always shows something). Chennai city centre.
-  static const _fallback = LatLng(13.0827, 80.2707);
-
+  /// The patient's actual position, or an explanation of why there isn't one.
+  ///
+  /// This used to swallow every failure and quietly return Chennai city
+  /// centre, so a denied permission or a switched-off GPS produced a map of
+  /// real pharmacies hundreds of kilometres away, captioned as if they were
+  /// nearby. Someone looking for a shop cannot tell that apart from a
+  /// working search. Each failure now says what it is and what to do about
+  /// it, which is the same posture as the rest of the app: no answer beats
+  /// a confident wrong one.
   Future<LatLng> _resolveLocation() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw const PharmacySearchException(
+        'Location is turned off on this phone, so there is nothing to search '
+        'around. Turn it on and try again.',
+      );
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw const PharmacySearchException(
+        'Location permission is blocked for MedIntel Nexus. Enable it in '
+        'Settings → Apps → MedIntel Nexus → Permissions → Location, then '
+        'try again.',
+      );
+    }
+    if (permission == LocationPermission.denied) {
+      throw const PharmacySearchException(
+        'Finding pharmacies near you needs location permission. Allow it and '
+        'try again.',
+      );
+    }
+
     try {
-      // Web + mobile: request permission then read position.
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return _fallback;
-      }
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
       return LatLng(pos.latitude, pos.longitude);
-    } catch (_) {
-      return _fallback;
+    } on Object {
+      throw const PharmacySearchException(
+        "Couldn't get a location fix. Move somewhere with a clearer view of "
+        'the sky, or try again in a moment.',
+      );
     }
   }
 
