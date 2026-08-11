@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -123,7 +123,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go(Routes.signIn),
+          onPressed: () => context.backOr(Routes.signIn),
         ),
       ),
       body: SafeArea(
@@ -304,7 +304,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       ),
                       TextButton(
                         onPressed:
-                            isLoading ? null : () => context.go(Routes.signIn),
+                            isLoading ? null : () => context.backOr(Routes.signIn),
                         child: Text(
                           'Sign in',
                           style: AppTypography.labelMd.copyWith(

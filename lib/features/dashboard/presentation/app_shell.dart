@@ -43,35 +43,74 @@ class AppShell extends ConsumerWidget {
       // NB: Column, not Scaffold. Each child screen has its own Scaffold
       // via GradientScaffold, and nested Scaffolds broke layout on Android
       // 15+ edge-to-edge.
-      return Material(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Column(
-          children: [
-            Expanded(child: navigationShell),
-            SafeArea(
-              top: false,
-              child: AppBottomNav(
-                currentIndex: navigationShell.currentIndex,
-                onTap: _onTap,
+      return _BackToHome(
+        navigationShell: navigationShell,
+        child: Material(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Column(
+            children: [
+              Expanded(child: navigationShell),
+              SafeArea(
+                top: false,
+                child: AppBottomNav(
+                  currentIndex: navigationShell.currentIndex,
+                  onTap: _onTap,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: Row(
-        children: [
-          _SideRail(
-            currentIndex: navigationShell.currentIndex,
-            onTap: _onTap,
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: navigationShell),
-        ],
+    return _BackToHome(
+      navigationShell: navigationShell,
+      child: Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Row(
+          children: [
+            _SideRail(
+              currentIndex: navigationShell.currentIndex,
+              onTap: _onTap,
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: navigationShell),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Makes the system back gesture return to the Home tab before it leaves the
+/// app.
+///
+/// The five branches are siblings, not a stack, so standing on Reports with
+/// nothing pushed leaves the back gesture with nothing to pop — and Android
+/// reads an unhandled back as "close the app". Tapping four tabs and swiping
+/// back would drop the user straight to the launcher.
+///
+/// Only the last step out of Home is allowed through. [PopScope.canPop] is
+/// true there rather than intercepting and calling `SystemNavigator.pop()`,
+/// which keeps Android's predictive-back animation working: the system needs
+/// to know in advance that this gesture will exit in order to draw it.
+class _BackToHome extends StatelessWidget {
+  const _BackToHome({required this.navigationShell, required this.child});
+
+  final StatefulNavigationShell navigationShell;
+  final Widget child;
+
+  static const int _homeBranch = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: navigationShell.currentIndex == _homeBranch,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        navigationShell.goBranch(_homeBranch);
+      },
+      child: child,
     );
   }
 }

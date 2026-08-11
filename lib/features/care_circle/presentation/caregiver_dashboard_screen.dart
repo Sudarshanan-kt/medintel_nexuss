@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../auth/application/auth_controller.dart';
 import '../application/care_circle_controller.dart';
@@ -334,7 +334,7 @@ class _PatientCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => context.go(Routes.caregiverPatientFor(
+          onTap: () => context.openScreen(Routes.caregiverPatientFor(
             patient.member.patientId,
           ),),
           child: Container(
@@ -454,7 +454,7 @@ class _QuickActions extends ConsumerWidget {
           child: _ActionTile(
             icon: Icons.groups_rounded,
             label: 'Care circle',
-            onTap: () => context.go(Routes.careCircle),
+            onTap: () => context.openScreen(Routes.careCircle),
           ),
         ),
         const SizedBox(width: 10),
@@ -470,7 +470,7 @@ class _QuickActions extends ConsumerWidget {
           child: _ActionTile(
             icon: Icons.person_rounded,
             label: 'Profile',
-            onTap: () => context.go(Routes.profile),
+            onTap: () => context.openScreen(Routes.profile),
           ),
         ),
       ],
@@ -682,7 +682,7 @@ class _NoPatientsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              onPressed: () => context.go(Routes.careCircle),
+              onPressed: () => context.backOr(Routes.careCircle),
               child: const Text(
                 'Manage Care Circle',
                 style: TextStyle(fontWeight: FontWeight.w700),

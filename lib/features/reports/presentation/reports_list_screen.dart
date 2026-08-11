@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -286,7 +287,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
           IconButton(
             icon: const Icon(Icons.show_chart_rounded),
             tooltip: 'Lab trends',
-            onPressed: () => context.push(Routes.biomarkerTrends),
+            onPressed: () => context.openScreen(Routes.biomarkerTrends),
           ),
           IconButton(
             icon: Icon(
@@ -497,7 +498,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: _ReportRow(
                             report: report,
                             onTap: () =>
-                                context.go(Routes.reportById(report.id)),
+                                context.openScreen(Routes.reportById(report.id)),
                             onDelete: () async {
                               final ok = await _confirmDelete(
                                 context,

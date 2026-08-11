@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -182,7 +182,7 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_rounded, color: _ink),
                       onPressed: () =>
-                          _codeSent ? _changeNumber() : context.go(Routes.signIn),
+                          _codeSent ? _changeNumber() : context.backOr(Routes.signIn),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -254,7 +254,7 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
                           style: TextStyle(color: _muted, fontSize: 13.5),
                         ),
                         TextButton(
-                          onPressed: () => context.go(Routes.signIn),
+                          onPressed: () => context.backOr(Routes.signIn),
                           child: const Text(
                             'Patient sign in',
                             style: TextStyle(

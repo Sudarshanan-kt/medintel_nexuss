@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../reminders/adherence_controller.dart';
 import '../../reminders/domain/medicine.dart';
@@ -46,7 +47,7 @@ class PatientDetailScreen extends ConsumerWidget {
           tooltip: 'Back',
           onPressed: () => context.canPop()
               ? context.pop()
-              : context.go(Routes.caregiverHome),
+              : context.backOr(Routes.caregiverHome),
         ),
         title: Text(
           patient?.member.patientDisplayName ?? 'Patient',
@@ -489,7 +490,7 @@ class _NoLongerLinked extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: kViolet),
-              onPressed: () => context.go(Routes.caregiverHome),
+              onPressed: () => context.backOr(Routes.caregiverHome),
               child: const Text('Back to dashboard'),
             ),
           ],

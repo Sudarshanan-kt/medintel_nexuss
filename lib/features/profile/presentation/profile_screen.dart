@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/services/biometric_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -766,7 +766,7 @@ class _HeroCard extends StatelessWidget {
                 child: _OutlineActionButton(
                   icon: Icons.share_rounded,
                   label: 'Care Circle',
-                  onTap: () => context.go(Routes.careCircle),
+                  onTap: () => context.openScreen(Routes.careCircle),
                 ),
               ),
             ],

@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/router/navigation.dart';
 import '../../app/router/route_names.dart';
 import 'adherence_controller.dart';
 import 'adherence_streak_card.dart';
@@ -72,8 +72,7 @@ class _MedicineReminderScreenState
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go(Routes.home),
+          onPressed: () => context.backOr(Routes.home),
         ),
         title: const Text(
           'Medicine Manager',

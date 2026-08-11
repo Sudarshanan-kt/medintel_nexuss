@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -64,7 +64,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go(Routes.signIn),
+          onPressed: () => context.backOr(Routes.signIn),
         ),
       ),
       body: SafeArea(
@@ -169,7 +169,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       style: AppTypography.labelMd
                           .copyWith(color: AppColors.primary),
                     ),
-                    onPressed: () => context.go(Routes.signIn),
+                    onPressed: () => context.backOr(Routes.signIn),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),

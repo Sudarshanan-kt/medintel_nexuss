@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -180,10 +180,10 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                               onSubmit: isLoading ? null : _submit,
                               onForgot: isLoading
                                   ? null
-                                  : () => context.go(Routes.forgotPassword),
+                                  : () => context.openScreen(Routes.forgotPassword),
                               onSignUp: isLoading
                                   ? null
-                                  : () => context.go(Routes.signUp),
+                                  : () => context.openScreen(Routes.signUp),
                               onGoogle: isLoading ? null : _googleSignIn,
                               onGoogleWeb: _googleWebSignedIn,
                               onApple: isLoading ? null : _appleSignIn,
@@ -197,7 +197,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                           TextButton.icon(
                             onPressed: isLoading
                                 ? null
-                                : () => context.go(Routes.caregiverSignIn),
+                                : () => context.openScreen(Routes.caregiverSignIn),
                             icon: const Icon(
                               Icons.volunteer_activism_rounded,
                               size: 17,

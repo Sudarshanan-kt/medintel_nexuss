@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../profile/application/profile_controller.dart';
 import '../../profile/domain/profile_record.dart';
@@ -71,8 +71,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go(Routes.home),
+          onPressed: () => context.backOr(Routes.home),
         ),
         title: const Text(
           'Emergency SOS',

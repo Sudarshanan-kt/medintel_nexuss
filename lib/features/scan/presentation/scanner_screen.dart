@@ -4,8 +4,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -115,7 +115,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       final file = await c.takePicture();
       final scan =
           ref.read(scansControllerProvider.notifier).addCapture(file.path);
-      if (mounted) context.go(Routes.scanResultId(scan.id));
+      if (mounted) context.openScreen(Routes.scanResultId(scan.id));
     } on CameraException catch (e) {
       debugPrint('Capture failed: ${e.code}');
     }
@@ -181,7 +181,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                 children: [
                   _CircleButton(
                     icon: Icons.close_rounded,
-                    onTap: () => context.go(Routes.home),
+                    onTap: () => context.backOr(Routes.home),
                   ),
                   const Spacer(),
                   if (ready)

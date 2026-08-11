@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -186,7 +186,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                           flex: 42,
                           child: _ScoreHeroCard(
                             percent: adherence.weeklyPercent,
-                            onTap: () => context.go(Routes.reminders),
+                            onTap: () => context.openScreen(Routes.reminders),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -200,7 +200,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                                 iconColour: _green,
                                 label: 'Medicines',
                                 caption: t.statScansCount(dash.scansCount),
-                                onTap: () => context.go(Routes.reminders),
+                                onTap: () => context.openScreen(Routes.reminders),
                               ),
                               _ActionMedallion(
                                 icon: Icons.description_rounded,
@@ -208,7 +208,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                                 iconColour: AppColors.accentViolet,
                                 label: 'Reports',
                                 caption: '${dash.reportsCount} uploaded',
-                                onTap: () => context.go(Routes.reports),
+                                onTap: () => context.openScreen(Routes.reports),
                               ),
                               _ActionMedallion(
                                 icon: Icons.notifications_rounded,
@@ -216,7 +216,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                                 iconColour: _amber,
                                 label: 'Reminders',
                                 caption: '${dash.medicineCount} active',
-                                onTap: () => context.go(Routes.reminders),
+                                onTap: () => context.openScreen(Routes.reminders),
                               ),
                               _ActionMedallion(
                                 icon: Icons.shield_rounded,
@@ -230,7 +230,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                                 caption: dash.riskAlertCount > 0
                                     ? t.statReviewNow
                                     : t.statAllClear,
-                                onTap: () => context.go(Routes.reports),
+                                onTap: () => context.openScreen(Routes.reports),
                               ),
                             ],
                           ),
@@ -267,7 +267,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                               ),
                             );
                           },
-                    onTap: () => context.go(Routes.reminders),
+                    onTap: () => context.openScreen(Routes.reminders),
                   ),
 
                   const SizedBox(height: 20),
@@ -278,7 +278,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                         Expanded(
                           child: _StreakCard(
                             state: adherence,
-                            onTap: () => context.go(Routes.reminders),
+                            onTap: () => context.openScreen(Routes.reminders),
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -287,11 +287,11 @@ class HomeDashboardScreen extends ConsumerWidget {
                             children: [
                               _RecentCard(
                                 item: recent.isEmpty ? null : recent.first,
-                                onSeeAll: () => context.go(Routes.reports),
+                                onSeeAll: () => context.openScreen(Routes.reports),
                               ),
                               const SizedBox(height: 14),
                               _EmergencyCard(
-                                onTap: () => context.go(Routes.sos),
+                                onTap: () => context.openScreen(Routes.sos),
                               ),
                             ],
                           ),
@@ -301,7 +301,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   ),
 
                   const SizedBox(height: 20),
-                  _AssistantCard(onTap: () => context.go(Routes.assistant)),
+                  _AssistantCard(onTap: () => context.openScreen(Routes.assistant)),
                 ],
               ],
             ),
@@ -822,7 +822,7 @@ class _RecentCard extends StatelessWidget {
           else
             InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () => context.go(item!.routePath),
+              onTap: () => context.openScreen(item!.routePath),
               child: Row(
                 children: [
                   Container(
@@ -1147,7 +1147,7 @@ class _CaregiverBody extends StatelessWidget {
         ],
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: () => context.go(Routes.careCircle),
+          onTap: () => context.openScreen(Routes.careCircle),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 15),
@@ -1342,7 +1342,7 @@ class _QuickActionsSheet extends ConsumerWidget {
                         onTap: () {
                           Navigator.of(context).pop();
                           if (a.routePath != null) {
-                            context.go(a.routePath!);
+                            context.openScreen(a.routePath!);
                             return;
                           }
                           // Every action currently has a route; this stays

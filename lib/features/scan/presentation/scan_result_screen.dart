@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -37,7 +38,7 @@ class ScanResultScreen extends ConsumerWidget {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => context.go(Routes.scan),
+            onPressed: () => context.backOr(Routes.scan),
           ),
         ),
         body: EmptyState(
@@ -45,7 +46,7 @@ class ScanResultScreen extends ConsumerWidget {
           title: 'Scan not found',
           message: 'This scan was removed or never saved.',
           actionLabel: 'Back to scanner',
-          onAction: () => context.go(Routes.scan),
+          onAction: () => context.backOr(Routes.scan),
         ),
       );
     }
@@ -54,7 +55,7 @@ class ScanResultScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go(Routes.home),
+          onPressed: () => context.backOr(Routes.home),
         ),
         title: const Text('Scan'),
         actions: [

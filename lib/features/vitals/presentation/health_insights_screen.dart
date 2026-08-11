@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -57,7 +57,7 @@ class HealthInsightsScreen extends ConsumerWidget {
           SectionHeader(
             title: 'AI insights',
             actionLabel: t.healthTimelineViewFullLink,
-            onAction: () => context.go(Routes.healthTimeline),
+            onAction: () => context.openScreen(Routes.healthTimeline),
           ),
           const SizedBox(height: AppSpacing.md),
           if (dash.insights.isEmpty)

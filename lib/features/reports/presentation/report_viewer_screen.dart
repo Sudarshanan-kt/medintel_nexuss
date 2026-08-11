@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../application/reports_controller.dart';
 import '../data/health_advice.dart';
@@ -48,7 +49,7 @@ class ReportViewerScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.reports),
+          onPressed: () => context.backOr(Routes.reports),
         ),
         title: Text(
           found?.typeLabel ?? 'Report',

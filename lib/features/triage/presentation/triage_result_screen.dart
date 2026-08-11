@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -170,7 +170,7 @@ class _ResultView extends ConsumerWidget {
             PrimaryButton(
               label: 'Open Emergency SOS',
               icon: Icons.call_rounded,
-              onPressed: () => context.push(Routes.sos),
+              onPressed: () => context.openScreen(Routes.sos),
             ),
           const SizedBox(height: AppSpacing.sm),
           SecondaryButton(
