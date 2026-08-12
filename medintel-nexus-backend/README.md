@@ -41,6 +41,22 @@ symptom is "pharmacies, generic swap and symptom check don't work here",
 with no error pointing at the cause. `scripts/run.sh` binds correctly and
 prints the URL the phone should use.
 
+Binding `0.0.0.0` is also what makes everything below matter: the API is
+reachable by everyone else on that Wi-Fi, not just the phone. Every route
+requires a Supabase token, so that is a locked door — with one exception,
+which is why `AUTH_DISABLED` now confines the server to localhost. See
+"Running it openly" below.
+
+Add `--no-reload` for demos. Hot reload drops every in-flight connection on
+each file save, which the app surfaces as a scan that failed for no visible
+reason.
+
+It also prints a **pairing code**, generated into `.env` on first run. The
+app checks it before adopting a server it found by scanning — a host that
+merely answers `/health` could be anything on a shared network, and the app
+has patient data and a bearer token to hand it. Enter the code once under
+Profile → server settings; it doesn't change when the machine's IP does.
+
 Check both halves are up:
 
 ```bash
@@ -65,9 +81,10 @@ hangs instead, a firewall or the router's client isolation is in the way.
 
 | Phone is on | What works |
 |---|---|
-| Same Wi-Fi as this machine | Bind `0.0.0.0`; the app finds it by sweeping the subnet |
+| Same Wi-Fi as this machine | Bind `0.0.0.0`, and enter the pairing code `run.sh` prints in the app once; it then finds this machine by sweeping the subnet |
 | USB cable | `adb reverse tcp:8000 tcp:8000` — the app reaches it at `localhost:8000` |
-| Mobile data | Nothing local. The phone has no route to a LAN address; this needs a tunnel (`cloudflared tunnel --url http://localhost:8000`) or a real deployment, with the resulting public URL set in the app's server setting |
+| No shared Wi-Fi | Join this machine to the phone's hotspot. Both end up on one subnet and the sweep works normally; restart `run.sh` so it prints the new address |
+| Neither is possible | A tunnel (`cloudflared tunnel --url http://localhost:8000`) or a real deployment, with the resulting public URL set in the app's server setting. Note this one routes patient data through a third party |
 
 ## Configuration
 
@@ -77,7 +94,9 @@ default except the Supabase secret.
 | Setting | Default | Notes |
 |---|---|---|
 | `SUPABASE_JWT_SECRET` | — | Required unless `AUTH_DISABLED=true` |
-| `AUTH_DISABLED` | `false` | Dev only. Treats every caller as `dev-user` |
+| `AUTH_DISABLED` | `false` | Dev only. Treats every caller as `dev-user`, and confines the API to localhost while it does |
+| `DISCOVERY_SECRET` | generated | The pairing code. `run.sh` writes one on first run; leave it alone after that |
+| `CORS_ORIGINS` | `[]` | Browser origins allowed to call this, e.g. `["http://localhost:5000"]`. Only the Flutter web build needs it |
 | `LLM_BASE_URL` | `http://localhost:11434/v1` | Any OpenAI-compatible local server |
 | `LLM_MODEL` | `qwen2.5:7b-instruct` | Must be pulled first |
 | `LLM_API_KEY` | — | Ollama needs none; llama.cpp / LM Studio may |
@@ -85,6 +104,47 @@ default except the Supabase secret.
 
 Swapping to llama.cpp or LM Studio is a `LLM_BASE_URL` change and nothing
 else — `app/llm.py` speaks the shape all of them implement.
+
+## Running it openly
+
+`AUTH_DISABLED=true` and an `0.0.0.0` bind are each reasonable on their own.
+The flag lets you work before Supabase is configured; the bind is the only
+way a phone can reach a laptop. Together they mean anyone on the same
+network reads and writes patient records with `Authorization: Bearer
+anything` — and "the same network" on campus or in a café is everybody.
+
+So the server refuses the combination rather than either half: with
+`AUTH_DISABLED=true` it answers requests from its own machine and returns
+403 to everything else. Local development is unaffected. If the phone starts
+getting 403s on every route, this is why — set `SUPABASE_JWT_SECRET` and
+turn the flag off.
+
+It is enforced per request in `main.py` rather than at startup, so it holds
+however uvicorn was launched, including the by-hand command above.
+
+The other thing an LAN-reachable server needs to get right is which websites
+can script requests at it. `CORS_ORIGINS` is empty by default, which grants
+nothing: the Android app is a native client, sends no `Origin`, and is
+unaffected. Point the Flutter web build here and you have to name it —
+
+```bash
+flutter run -d chrome --web-port=5000     # then CORS_ORIGINS=["http://localhost:5000"]
+```
+
+— rather than reaching for `["*"]`. A wildcard here is not the harmless
+catch-all it looks like. Starlette pairs it with `allow_credentials` by
+echoing back whichever `Origin` asked instead of a literal `*`, so every
+site on the internet ends up holding a credentialed grant against a server
+on your home network. Credentials are now off outright, which forecloses
+that: this API authenticates from a Bearer header and has never used
+cookies.
+
+Worth being clear about what this does not cover. The traffic is plain HTTP,
+so the pairing code proves *which* server the app is talking to but keeps
+nothing private from anything already on the path; `AUTH_DISABLED=false`
+leaves the API open to unauthenticated `/health` and `/dev-storage` probes
+from the LAN, which is intended; and none of it makes this deployable to the
+public internet, which would need TLS and a real storage backend.
 
 ## Two things worth knowing
 

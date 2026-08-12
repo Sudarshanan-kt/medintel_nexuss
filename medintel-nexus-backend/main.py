@@ -1,9 +1,17 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.envelope import ApiError, api_error_handler, unhandled_error_handler, validation_error_handler
+from app.envelope import (
+    ApiError,
+    api_error_handler,
+    error_body,
+    unhandled_error_handler,
+    validation_error_handler,
+)
+from app.security import discovery_proof, is_local_client
 from app.routers import (
     assistant,
     interactions,
@@ -17,13 +25,65 @@ from app import llm, store
 
 app = FastAPI(title="MedIntel Nexus API", version="0.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def add_cors(app: FastAPI, origins: list[str]) -> None:
+    """Grants browser access to [origins], and to nothing if that is empty.
+
+    Empty is the default and is right for the Android app: CORS is a browser
+    rule and a native HTTP client never sends an Origin, so there is nothing
+    to grant. It matters only when the Flutter web build is pointed here.
+
+    Credentials stay off. `Access-Control-Allow-Credentials` is about cookies
+    and TLS client certs, and this API authenticates from a Bearer header,
+    which allow_headers already covers. Off also caps the damage of a "*"
+    finding its way back into CORS_ORIGINS: with credentials disabled a
+    wildcard can only ever be a literal "*", which browsers refuse to use for
+    credentialed requests. With them enabled, Starlette quietly upgrades the
+    same wildcard into an echo of whichever origin asked, which is a real
+    grant to every site on the internet.
+    """
+    if not origins:
+        return
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+add_cors(app, settings.cors_origins)
+
+
+@app.middleware("http")
+async def confine_disabled_auth_to_this_machine(request: Request, call_next):
+    """Keeps AUTH_DISABLED from becoming an open door onto the network.
+
+    The flag treats every caller as `dev-user`, which is a reasonable way to
+    work before Supabase is wired up — and the server binds 0.0.0.0, because
+    a phone has to reach it. Together those mean anyone on the same Wi-Fi
+    can read and write patient records with any string in the Authorization
+    header. On café, hospital or campus Wi-Fi that is everyone.
+
+    The two settings are individually fine and only dangerous combined, so
+    this refuses the combination rather than either half: with auth off, the
+    API serves this machine only. Checked per request rather than at startup
+    because it should hold however uvicorn was launched, including by hand.
+    """
+    if settings.auth_disabled:
+        client = request.client.host if request.client else None
+        if not is_local_client(client):
+            return JSONResponse(
+                status_code=403,
+                content=error_body(
+                    "This server is running with authentication disabled, so "
+                    "it only answers requests from the machine it runs on. "
+                    "Set SUPABASE_JWT_SECRET and AUTH_DISABLED=false to reach "
+                    "it from a phone."
+                ),
+            )
+    return await call_next(request)
+
 
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -39,8 +99,19 @@ app.include_router(savings.router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health(nonce: str = "") -> dict:
+    """Liveness, and — given a nonce — proof of which backend this is.
+
+    Plain `curl localhost:8000/health` still answers `{"status": "ok"}`.
+    The nonce is for the app's LAN sweep: it has to pick one host out of a
+    subnet, and every impostor can return "ok" too. See
+    `security.discovery_proof`.
+    """
+    body = {"status": "ok"}
+    proof = discovery_proof(nonce)
+    if proof is not None:
+        body["proof"] = proof
+    return body
 
 
 @app.get("/health/llm")

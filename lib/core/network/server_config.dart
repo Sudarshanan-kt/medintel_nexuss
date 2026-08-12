@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_endpoints.dart';
@@ -25,6 +26,15 @@ class ServerConfig extends Notifier<String> {
   /// Whether the stored address was typed in rather than auto-detected.
   static const _manualKey = 'medintel_api_base_url_manual';
 
+  /// The pairing code, kept in the keystore rather than SharedPreferences:
+  /// it is the one value here that is a secret, and anything holding it can
+  /// impersonate the backend to this app.
+  static const _pairingKey = 'medintel_pairing_code';
+
+  static const _secureStore = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
   /// How long after a fruitless sweep to wait before starting another.
   ///
   /// A sweep is 254 probes. Without this, a backend that is simply switched
@@ -43,6 +53,23 @@ class ServerConfig extends Notifier<String> {
   /// True when the current address was chosen by a person, which makes it
   /// off-limits to automatic re-detection. See [_ensureReachable].
   bool _chosenByUser = false;
+
+  String _pairingCode = '';
+
+  /// The code this app checks a discovered server against, or empty if the
+  /// phone has not been paired with a backend yet. Printed by the backend's
+  /// `scripts/run.sh` on startup.
+  String get pairingCode => _pairingCode;
+
+  /// Whether a person or a build chose the current address, rather than a
+  /// network scan finding it.
+  ///
+  /// The distinction decides how much proof the address has to offer. A
+  /// typed-in or compiled-in address is somebody's stated intent, and
+  /// answering is enough to believe it. A swept one is whichever host on the
+  /// current Wi-Fi replied first, which on a network we don't own is not a
+  /// reason to send it a bearer token — that one has to prove itself.
+  bool get _addressAsserted => _chosenByUser || state == ApiEndpoints.baseUrl;
 
   /// The address requests currently go to.
   ///
@@ -96,8 +123,8 @@ class ServerConfig extends Notifier<String> {
     // A typed-in address is never swapped out from under the user. Automatic
     // detection exists for one situation — a backend on a laptop whose DHCP
     // address moves — and it can only ever find something on the current
-    // LAN. An address reached over Tailscale, a tunnel or a real deployment
-    // is stable and works on mobile data, so "healing" it into a 192.168.x
+    // LAN. An address reached over a tunnel or a real deployment is stable
+    // and works off-LAN, so "healing" it into a 192.168.x
     // address would break exactly the case it was set up for, and would do
     // it silently. The settings screen's detect button is the way to change
     // it.
@@ -111,7 +138,7 @@ class ServerConfig extends Notifier<String> {
     }
     _lastSweep = DateTime.now();
 
-    final found = await ServerDiscovery.find();
+    final found = await ServerDiscovery.find(pairingCode: _pairingCode);
     if (found == null) return false;
     if (found != state) await setBaseUrl(found);
     return true;
@@ -127,6 +154,12 @@ class ServerConfig extends Notifier<String> {
       // Keep the compiled-in default; an unreadable preference store is not
       // a reason to fail to start.
     }
+    try {
+      _pairingCode = await _secureStore.read(key: _pairingKey) ?? '';
+    } catch (_) {
+      // No code means discovery stays off and a stored discovered address
+      // can't be re-verified, which is the safe way to fail.
+    }
     // Whatever address we ended up with was correct on *some* network. The
     // backend's IP moves with every Wi-Fi change, so confirm it still answers
     // and go looking if it doesn't.
@@ -137,16 +170,43 @@ class ServerConfig extends Notifier<String> {
     unawaited(ensureReachable());
   }
 
-  /// Sweeps the current network for the backend and adopts it if found.
+  /// Stores the code that discovered servers are checked against.
   ///
-  /// Returns the address found, or null. Exposed for the settings screen's
-  /// "detect automatically" action.
+  /// Tolerant about how it's entered: the code is 32 hex characters read off
+  /// a terminal and typed on a phone, so spacing, dashes and case are the
+  /// user's business, not the comparison's.
+  Future<void> setPairingCode(String code) async {
+    _pairingCode = normalisePairingCode(code);
+    try {
+      if (_pairingCode.isEmpty) {
+        await _secureStore.delete(key: _pairingKey);
+      } else {
+        await _secureStore.write(key: _pairingKey, value: _pairingCode);
+      }
+    } catch (_) {
+      // In-memory value still applies for this session.
+    }
+  }
+
+  static String normalisePairingCode(String raw) {
+    return raw.replaceAll(RegExp(r'[\s-]'), '').toLowerCase();
+  }
+
+  /// Sweeps the current network for the backend and adopts it if it proves
+  /// it holds the pairing code.
+  ///
+  /// Returns the address found, or null — including when no pairing code is
+  /// set, which is when there is no way to tell the backend from anything
+  /// else that answers and so nothing is swept at all.
   Future<String?> autoDetect({
     void Function(int done, int total)? onProgress,
   }) async {
     isDetecting = true;
     try {
-      final found = await ServerDiscovery.find(onProgress: onProgress);
+      final found = await ServerDiscovery.find(
+        pairingCode: _pairingCode,
+        onProgress: onProgress,
+      );
       // Asking to detect is asking to hand the address back to automation,
       // so this clears any earlier manual choice.
       if (found != null) await setBaseUrl(found, chosenByUser: false);
@@ -157,7 +217,24 @@ class ServerConfig extends Notifier<String> {
   }
 
   /// Whether [url] is this app's backend, right now.
-  static Future<bool> _answers(String url) async {
+  ///
+  /// How hard that is to show depends on where the address came from — see
+  /// [_addressAsserted]. A discovered one has to prove it holds the pairing
+  /// code, every time, because the host at a given IP changes with the
+  /// network while the stored address doesn't: the laptop at 192.168.1.5 at
+  /// home is a stranger's machine at 192.168.1.5 in a café.
+  Future<bool> _answers(String url) async {
+    if (url.isEmpty) return false;
+    if (!_addressAsserted) {
+      return _pairingCode.isNotEmpty &&
+          await ServerDiscovery.verify(url, _pairingCode);
+    }
+    return _isAlive(url);
+  }
+
+  /// Whether anything is serving this app's `/health` at [url]. Liveness
+  /// only — it says something answered, not who.
+  static Future<bool> _isAlive(String url) async {
     if (url.isEmpty) return false;
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
     try {
@@ -201,6 +278,10 @@ class ServerConfig extends Notifier<String> {
   }
 
   /// Returns to the address compiled into this build.
+  ///
+  /// Leaves the pairing code alone: it belongs to a backend rather than to
+  /// an address, survives the machine moving networks, and is the tedious
+  /// thing to re-enter.
   Future<void> reset() async {
     state = ApiEndpoints.baseUrl;
     _chosenByUser = false;

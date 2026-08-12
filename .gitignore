@@ -10,6 +10,9 @@ android/.gradle/
 android/local.properties
 *.env
 .env
+# Backups and per-machine variants hold the same secrets as .env itself.
+.env.*
+!.env.example
 outputs/
 
 # macOS

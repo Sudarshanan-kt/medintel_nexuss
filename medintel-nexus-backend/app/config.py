@@ -7,11 +7,37 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     supabase_url: str = ""
+    # Only for projects still signing with the legacy shared secret, and for
+    # tokens issued before a project rotated away from one. Current Supabase
+    # projects sign with ES256 and are verified against the public keys at
+    # SUPABASE_URL's JWKS endpoint, which needs no secret here — see
+    # `security._verification_key`.
     supabase_jwt_secret: str = ""
     # Dev-only escape hatch for running the API before a Supabase project is
     # wired up. Never enable this outside local development.
     auth_disabled: bool = False
-    cors_origins: List[str] = ["*"]
+    # Browser origins allowed to call this API. Empty by default, and empty
+    # is right for the Android app: CORS governs browsers, and a native
+    # client isn't one. It matters when the Flutter web build is pointed
+    # here, which is the only reason it's configurable.
+    #
+    # Not "*". Starlette does not leave a wildcard inert when credentials
+    # are allowed — it echoes back whichever Origin asked, which is a valid
+    # credentialed grant to every site on the internet, against a server on
+    # the developer's LAN.
+    #
+    #   CORS_ORIGINS=["http://localhost:5000"]
+    cors_origins: List[str] = []
+
+    # Shared secret that lets the app tell this backend apart from anything
+    # else answering on the LAN. The app sweeps the subnet looking for a
+    # `/health` that responds, and without a secret to check, "responds"
+    # is all it can go on — any host on a café or campus network could
+    # answer first and start receiving bearer tokens and patient data.
+    # `scripts/run.sh` generates one into .env on first run and prints it;
+    # the same string goes into the app's server settings, once, and stays
+    # valid as the machine's IP moves between networks.
+    discovery_secret: str = ""
 
     # ── Local LLM ────────────────────────────────────────────────────────
     # Inference runs on this machine, not a hosted API. The default targets

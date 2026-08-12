@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/server_config.dart';
+import '../../../core/network/server_discovery.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -34,6 +35,9 @@ enum _ProbeState { idle, testing, reachable, unreachable }
 class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   late final TextEditingController _controller =
       TextEditingController(text: ref.read(serverConfigProvider));
+  late final TextEditingController _codeController = TextEditingController(
+    text: ref.read(serverConfigProvider.notifier).pairingCode,
+  );
   _ProbeState _probe = _ProbeState.idle;
   String? _detail;
   bool _detecting = false;
@@ -42,14 +46,32 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   /// Sweeps the current Wi-Fi for the backend and fills the field with what
   /// it finds — so switching networks doesn't require knowing the laptop's
   /// new IP address.
+  ///
+  /// Saves the pairing code first, because the sweep is built on it: every
+  /// host it probes is asked to prove it holds the code, and one that can't
+  /// is passed over.
   Future<void> _detect() async {
+    final notifier = ref.read(serverConfigProvider.notifier);
+    await notifier.setPairingCode(_codeController.text);
+    if (!mounted) return;
+
+    if (notifier.pairingCode.isEmpty) {
+      setState(() {
+        _probe = _ProbeState.unreachable;
+        _detail = 'Enter the pairing code first. Without it the app has no '
+            'way to tell your backend from anything else answering on this '
+            'Wi-Fi, so it will not adopt a server it finds by searching.';
+      });
+      return;
+    }
+
     setState(() {
       _detecting = true;
       _detectPercent = 0;
       _probe = _ProbeState.idle;
       _detail = null;
     });
-    final found = await ref.read(serverConfigProvider.notifier).autoDetect(
+    final found = await notifier.autoDetect(
       onProgress: (done, total) {
         if (!mounted) return;
         setState(() => _detectPercent = (done * 100 / total).round());
@@ -63,9 +85,10 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
         _probe = _ProbeState.reachable;
       } else {
         _probe = _ProbeState.unreachable;
-        _detail = 'No backend answered on this network. Check it is running '
-            'with --host 0.0.0.0, and that the phone is on the same Wi-Fi '
-            '(not mobile data).';
+        _detail = 'No backend on this network proved it holds that pairing '
+            'code. Check it is running with --host 0.0.0.0, that the phone '
+            'is on the same Wi-Fi (not mobile data), and that the code '
+            'matches the one the backend printed on startup.';
       }
     });
   }
@@ -73,14 +96,21 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   @override
   void dispose() {
     _controller.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
   /// Checks the address before it's saved, so a typo is caught here rather
   /// than surfacing later as a mysteriously broken scan.
+  ///
+  /// Reports reachable and *verified* separately. A typed-in address is
+  /// trusted on the user's say-so, so a wrong pairing code doesn't stop it
+  /// working — but it does stop the app finding this backend again on the
+  /// next network, and here is where that is still cheap to notice.
   Future<void> _test() async {
     final url = ServerConfig.normalise(_controller.text);
     if (url.isEmpty) return;
+    final code = ServerConfig.normalisePairingCode(_codeController.text);
 
     setState(() {
       _probe = _ProbeState.testing;
@@ -97,12 +127,33 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
 
       final ok = res.data?['status'] == 'ok';
       if (!mounted) return;
+      if (!ok) {
+        setState(() {
+          _probe = _ProbeState.unreachable;
+          _detail = 'Something answered, but it isn\'t this app\'s backend.';
+        });
+        return;
+      }
+
+      if (code.isEmpty) {
+        setState(() {
+          _probe = _ProbeState.reachable;
+          _detail = 'Answered. Add the pairing code to let the app find this '
+              'backend by itself when the address changes.';
+        });
+        return;
+      }
+
+      final verified = await ServerDiscovery.verify(url, code);
+      if (!mounted) return;
       setState(() {
-        _probe = ok ? _ProbeState.reachable : _ProbeState.unreachable;
-        _detail = ok
+        _probe = _ProbeState.reachable;
+        _detail = verified
             ? null
-            : 'Something answered, but it isn\'t this app\'s '
-                'backend.';
+            : 'Answered, but it couldn\'t prove it holds that pairing code. '
+                'The address will still work; searching for it later won\'t. '
+                'Check the code against the one the backend printed, and that '
+                'it was started with a DISCOVERY_SECRET set.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -116,13 +167,12 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
   }
 
   Future<void> _save() async {
+    final notifier = ref.read(serverConfigProvider.notifier);
+    await notifier.setPairingCode(_codeController.text);
     // Typed in, so it stays put: automatic detection can only find a backend
-    // on the current LAN, and would otherwise quietly overwrite a Tailscale
-    // or tunnel address that was set precisely because it works off-LAN.
-    await ref.read(serverConfigProvider.notifier).setBaseUrl(
-          _controller.text,
-          chosenByUser: true,
-        );
+    // on the current LAN, and would otherwise quietly overwrite a tunnel or
+    // deployment address that was set precisely because it works off-LAN.
+    await notifier.setBaseUrl(_controller.text, chosenByUser: true);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -186,6 +236,29 @@ class _ServerSettingsSheetState extends ConsumerState<_ServerSettingsSheet> {
                     });
                   }
                 },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _codeController,
+                label: 'Pairing code',
+                hint: '32 characters, printed by the backend',
+                keyboardType: TextInputType.visiblePassword,
+                onChanged: (_) {
+                  if (_probe != _ProbeState.idle) {
+                    setState(() {
+                      _probe = _ProbeState.idle;
+                      _detail = null;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Shown once when the backend starts. It is what proves a '
+                'server on this Wi-Fi is yours before the app sends it your '
+                'prescriptions — searching for the server needs it.',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textSecondary),
               ),
               if (_probe != _ProbeState.idle) ...[
                 const SizedBox(height: AppSpacing.md),

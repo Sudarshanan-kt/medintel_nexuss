@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 
 /// Finds the backend on whatever Wi-Fi the phone is currently on.
 ///
@@ -11,6 +15,12 @@ import 'dart:io';
 /// Rather than ask the user to find their laptop's IP, this sweeps the phone's
 /// own subnet for something answering this app's `/health`. A /24 is only 254
 /// addresses; probed in parallel with a short timeout that's a few seconds.
+///
+/// Answering is not enough to be adopted. Everything this app sends the
+/// backend — a Supabase bearer token, prescriptions, lab results — would go
+/// to whatever host replied first, and on café, hospital or campus Wi-Fi that
+/// is not a host we chose. So a candidate has to prove it holds the pairing
+/// code printed by `scripts/run.sh`: see [verify]. No pairing code, no sweep.
 ///
 /// Deliberately not mDNS/Bonjour: it needs a native plugin, an extra Android
 /// permission, and is unreliable on networks that block multicast — which is
@@ -28,21 +38,111 @@ abstract final class ServerDiscovery {
   /// few seconds, low enough not to exhaust the socket limit.
   static const int _concurrency = 48;
 
+  static final Random _random = Random.secure();
+
   /// Scans every IPv4 subnet the phone is on and returns the first base URL
-  /// that answers as this app's backend, or null if nothing does.
+  /// that proves it is this app's backend, or null if none does.
+  ///
+  /// [pairingCode] is the code the backend printed on startup. Empty means
+  /// nothing found can be told apart from an impostor, so nothing is
+  /// returned and no probes are sent at all.
   ///
   /// [onProgress] reports hosts probed so far, for a progress indicator.
   static Future<String?> find({
+    required String pairingCode,
     void Function(int done, int total)? onProgress,
   }) async {
+    if (pairingCode.isEmpty) return null;
+
     final prefixes = await _localPrefixes();
     if (prefixes.isEmpty) return null;
 
     for (final prefix in prefixes) {
-      final found = await _scanPrefix(prefix, onProgress: onProgress);
+      final found = await _scanPrefix(
+        prefix,
+        pairingCode,
+        onProgress: onProgress,
+      );
       if (found != null) return found;
     }
     return null;
+  }
+
+  /// Whether the server at [baseUrl] holds [pairingCode].
+  ///
+  /// Asks for a proof over a nonce this app just made up, so the answer is
+  /// different every time and a host that overhears one exchange has nothing
+  /// to replay. The code itself never goes over the wire.
+  ///
+  /// False whenever that can't be shown — unreachable, not this app's
+  /// backend, or a backend running without a `DISCOVERY_SECRET` and so
+  /// unable to prove anything. Failing closed is the point: this is the
+  /// check that decides whether to send a bearer token and health records to
+  /// an address nobody typed in.
+  static Future<bool> verify(
+    String baseUrl,
+    String pairingCode, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (baseUrl.isEmpty || pairingCode.isEmpty) return false;
+
+    final nonce = _nonce();
+    final client = HttpClient()
+      ..connectionTimeout = timeout
+      ..idleTimeout = timeout;
+    try {
+      final request = await client
+          .getUrl(Uri.parse('$baseUrl/health?nonce=$nonce'))
+          .timeout(timeout);
+      final response = await request.close().timeout(timeout);
+      if (response.statusCode != 200) return false;
+
+      // Bounded: an unverified host is choosing this response, and a stream
+      // that never ends would hold the sweep open for its whole timeout.
+      final body = await response
+          .take(2048)
+          .transform(utf8.decoder)
+          .join()
+          .timeout(timeout);
+      final decoded = jsonDecode(body);
+      if (decoded is! Map) return false;
+
+      final proof = decoded['proof'];
+      if (proof is! String) return false;
+      return _constantTimeEquals(proof, _expectedProof(pairingCode, nonce));
+    } on Object {
+      // Unreachable, not HTTP, not JSON, truncated mid-object — none of it
+      // distinguishes "wrong host" from "broken host", and both mean no.
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// A fresh 128-bit challenge, hex encoded.
+  static String _nonce() {
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// What a server holding [pairingCode] must return for [nonce]. Mirrors
+  /// `security.discovery_proof` on the backend.
+  static String _expectedProof(String pairingCode, String nonce) {
+    return Hmac(sha256, utf8.encode(pairingCode))
+        .convert(utf8.encode(nonce))
+        .toString();
+  }
+
+  /// Compares without leaking, in how long it takes, how much of the proof
+  /// was right. Cheap here, and the alternative is a timing oracle that
+  /// lets an attacker on the LAN build a valid proof a byte at a time.
+  static bool _constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
   }
 
   /// The `a.b.c.` prefixes of every non-loopback IPv4 address the phone holds.
@@ -83,7 +183,8 @@ abstract final class ServerDiscovery {
   }
 
   static Future<String?> _scanPrefix(
-    String prefix, {
+    String prefix,
+    String pairingCode, {
     void Function(int done, int total)? onProgress,
   }) async {
     const total = 254;
@@ -92,7 +193,7 @@ abstract final class ServerDiscovery {
     for (var start = 1; start <= total; start += _concurrency) {
       final batch = <Future<String?>>[];
       for (var i = start; i < start + _concurrency && i <= total; i++) {
-        batch.add(_probe('$prefix$i'));
+        batch.add(_probe('$prefix$i', pairingCode));
       }
       final results = await Future.wait(batch);
       done += batch.length;
@@ -105,32 +206,10 @@ abstract final class ServerDiscovery {
     return null;
   }
 
-  /// One host. Returns its base URL if it answers as this backend.
-  ///
-  /// Checks the body, not just that something replied: a router admin page or
-  /// a printer on port 8000 would happily return 200 for `/health`, and
-  /// adopting one as the server would be worse than finding nothing.
-  static Future<String?> _probe(String host) async {
-    final client = HttpClient()
-      ..connectionTimeout = _hostTimeout
-      ..idleTimeout = _hostTimeout;
-    try {
-      final request = await client
-          .getUrl(Uri.parse('http://$host:$port/health'))
-          .timeout(_hostTimeout);
-      final response = await request.close().timeout(_hostTimeout);
-      if (response.statusCode != 200) return null;
-      final body = await response
-          .take(1024)
-          .transform(const SystemEncoding().decoder)
-          .join()
-          .timeout(_hostTimeout);
-      if (!body.contains('"status"') || !body.contains('ok')) return null;
-      return 'http://$host:$port';
-    } on Object {
-      return null;
-    } finally {
-      client.close(force: true);
-    }
+  /// One host. Returns its base URL if it proves it is this backend.
+  static Future<String?> _probe(String host, String pairingCode) async {
+    final url = 'http://$host:$port';
+    final ours = await verify(url, pairingCode, timeout: _hostTimeout);
+    return ours ? url : null;
   }
 }

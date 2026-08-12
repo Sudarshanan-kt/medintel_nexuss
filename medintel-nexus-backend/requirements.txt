@@ -6,6 +6,8 @@ uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 PyJWT==2.10.1
+# ES256 verification of Supabase tokens; PyJWT needs it for asymmetric keys
+cryptography==50.0.0
 httpx==0.28.1
 structlog==24.4.0
 redis==5.2.1
