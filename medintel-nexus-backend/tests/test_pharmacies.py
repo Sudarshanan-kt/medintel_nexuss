@@ -87,7 +87,7 @@ class TestCoarsening:
 
     def test_neighbours_share_one_cache_entry(self, overpass):
         """Two people a few hundred metres apart must look identical to
-        Overpass, and only cost it one query."""
+        Overpass, and cost it one lookup between them."""
         seen = overpass([])
 
         for lat, lon in ((13.0826, 80.2707), (13.0830, 80.2710)):
@@ -97,7 +97,12 @@ class TestCoarsening:
                 headers=AUTH,
             )
 
-        assert len(seen) == 1
+        # Identical: neither position is recoverable from what was asked.
+        assert len(set(seen)) == 1
+        # One lookup, not two — the second position came out of the cache.
+        # A lookup asks every mirror at once, so it is one query per mirror
+        # rather than one query, which is the load racing them costs.
+        assert len(seen) == len(pharmacies._ENDPOINTS)
 
     def test_the_radius_is_widened_to_cover_the_snapping(self, overpass):
         """Snapping moves the centre, so the query has to reach further or a

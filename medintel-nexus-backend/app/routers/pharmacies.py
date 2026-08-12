@@ -19,6 +19,7 @@ Overpass is still contacted, just at arm's length. Removing it entirely
 means self-hosting an OSM extract — a real option, and a much larger one.
 """
 
+import asyncio
 import logging
 import math
 import time
@@ -152,42 +153,97 @@ def _parse(payload: dict) -> List[dict]:
     return pharmacies
 
 
+async def _ask_mirror(
+    client: httpx.AsyncClient, url: str, query: str, attempt: int
+) -> Optional[List[dict]]:
+    """One mirror, once. None means it didn't answer usefully."""
+    try:
+        response = await client.post(
+            url,
+            # Let httpx form-encode it. The query contains characters that
+            # have meaning in a form body.
+            data={"data": query},
+            headers={"User-Agent": _USER_AGENT},
+        )
+        response.raise_for_status()
+        return _parse(response.json())
+    except Exception as exc:
+        logger.warning(
+            "Overpass mirror failed (attempt %d): %s — %s: %s",
+            attempt + 1,
+            url,
+            # A timeout's str() is empty, which used to make these lines read
+            # as though nothing had gone wrong.
+            type(exc).__name__,
+            exc or "no detail",
+        )
+        return None
+
+
+async def _race_mirrors(
+    client: httpx.AsyncClient, query: str, attempt: int, budget: float
+) -> Optional[List[dict]]:
+    """Asks every mirror at once and returns the first usable answer.
+
+    Sequentially, a mirror that hangs costs the full per-mirror timeout
+    before the next one is even tried, so one dead mirror delays a healthy
+    one that would have answered in a second. Overpass mirrors fail
+    independently and unpredictably — which one is up varies by network and
+    by minute — so there is no useful order to try them in. Asking all three
+    together makes a round cost the *fastest* answer instead of the sum of
+    the failures.
+
+    The extra load is three small queries against donated infrastructure,
+    once per uncached lookup, which is why the result is cached and the
+    coordinates are snapped to a grid before it gets here.
+    """
+    tasks = {
+        asyncio.create_task(_ask_mirror(client, url, query, attempt))
+        for url in _ENDPOINTS
+    }
+    pending = tasks
+    try:
+        while pending:
+            done, pending = await asyncio.wait(
+                pending, timeout=budget, return_when=asyncio.FIRST_COMPLETED
+            )
+            if not done:
+                return None
+            for task in done:
+                result = task.result()
+                if result is not None:
+                    return result
+        return None
+    finally:
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
 async def _query_overpass(lat: float, lon: float, radius_m: int) -> Optional[List[dict]]:
     """Returns None when every mirror failed, so the caller can say the
     search didn't run rather than that there are no pharmacies nearby.
 
-    Each mirror is tried more than once. A 504 from Overpass means it was too
-    busy this second, not that the data is missing, and a single one used to
-    be enough to fail the whole search — the user saw "pharmacy search is
-    unavailable" for something that succeeds on the next attempt.
+    Every mirror is asked at once, and the whole round is repeated if none
+    answers. A 504 from Overpass means it was too busy this second, not that
+    the data is missing, and a single one used to be enough to fail the whole
+    search — the user saw "pharmacy search is unavailable" for something that
+    succeeds on the next attempt.
     """
     query = _build_query(lat, lon, radius_m)
     deadline = time.monotonic() + _TOTAL_BUDGET_SECONDS
 
     async with httpx.AsyncClient(timeout=_MIRROR_TIMEOUT_SECONDS) as client:
         for attempt in range(_ATTEMPTS_PER_MIRROR):
-            for url in _ENDPOINTS:
-                if time.monotonic() >= deadline:
-                    logger.warning("Overpass lookup out of time after %ss",
-                                   _TOTAL_BUDGET_SECONDS)
-                    return None
-                try:
-                    response = await client.post(
-                        url,
-                        # Let httpx form-encode it. The query contains
-                        # characters that have meaning in a form body.
-                        data={"data": query},
-                        headers={"User-Agent": _USER_AGENT},
-                    )
-                    response.raise_for_status()
-                    return _parse(response.json())
-                except Exception as exc:
-                    logger.warning(
-                        "Overpass mirror failed (attempt %d): %s — %s",
-                        attempt + 1,
-                        url,
-                        exc,
-                    )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "Overpass lookup out of time after %ss", _TOTAL_BUDGET_SECONDS
+                )
+                return None
+            found = await _race_mirrors(client, query, attempt, remaining)
+            if found is not None:
+                return found
     return None
 
 
