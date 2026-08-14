@@ -1,8 +1,12 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app import records_db
 from app.config import settings
 from app.envelope import (
     ApiError,
@@ -23,7 +27,30 @@ from app.routers import (
 )
 from app import llm, store
 
-app = FastAPI(title="MedIntel Nexus API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Cleans up after whatever the last process was in the middle of.
+
+    Records outlive the process now, but the background tasks working on
+    them do not. A scan left saying "processing" by a restart would be
+    polled forever, so it is reset to `failed` — a state the client already
+    offers Try again on, which re-runs the pipeline over the image still
+    sitting in `uploads/`. See `records_db.fail_interrupted_processing`.
+    """
+    interrupted = records_db.fail_interrupted_processing()
+    if interrupted:
+        logger.info(
+            "Reset %d scan(s) left mid-processing by the previous run; "
+            "they can be retried from the app.",
+            interrupted,
+        )
+    yield
+
+
+app = FastAPI(title="MedIntel Nexus API", version="0.1.0", lifespan=lifespan)
 
 def add_cors(app: FastAPI, origins: list[str]) -> None:
     """Grants browser access to [origins], and to nothing if that is empty.

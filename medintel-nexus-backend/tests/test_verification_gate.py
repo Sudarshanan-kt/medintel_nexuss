@@ -55,9 +55,11 @@ def unverified_prescription():
             },
         ],
     )
-    store._prescriptions[record.id] = record
+    # Records live in SQLite, so a test that changes one has to save it
+    # again — mutating the object below is no longer what the API reads.
+    store.put_prescription(record)
     yield record
-    store._prescriptions.pop(record.id, None)
+    store.delete_prescription(record.id)
 
 
 def test_unverified_prescription_reports_needing_review(unverified_prescription):
@@ -157,7 +159,7 @@ def test_verify_rejects_a_prescription_still_processing():
     record = store.PrescriptionRecord(
         id="rx_test_processing", user_id=DEV_USER_ID, status="processing"
     )
-    store._prescriptions[record.id] = record
+    store.put_prescription(record)
     try:
         res = client.post(
             f"/api/v1/prescriptions/{record.id}/verify",
@@ -166,11 +168,12 @@ def test_verify_rejects_a_prescription_still_processing():
         )
         assert res.status_code == 409
     finally:
-        store._prescriptions.pop(record.id, None)
+        store.delete_prescription(record.id)
 
 
 def test_another_users_prescription_is_not_reachable(unverified_prescription):
     unverified_prescription.user_id = "someone-else"
+    store.put_prescription(unverified_prescription)
 
     res = client.post(
         "/api/v1/interactions/check",
@@ -191,6 +194,7 @@ def test_reprocessing_reopens_the_gate(unverified_prescription, tmp_path):
     image = tmp_path / "rx.jpg"
     image.write_bytes(b"not-an-image")
     unverified_prescription.image_path = str(image)
+    store.put_prescription(unverified_prescription)
 
     res = client.post(
         f"/api/v1/prescriptions/{unverified_prescription.id}/reprocess",
@@ -208,8 +212,9 @@ def test_reprocessing_without_a_stored_image_changes_nothing(
     be knocked out of its current state for no reason."""
     unverified_prescription.verified = True
     unverified_prescription.image_path = None
+    store.put_prescription(unverified_prescription)
 
     store.reprocess(unverified_prescription.id)
 
-    assert unverified_prescription.verified is True
+    assert store.get_prescription(unverified_prescription.id).verified is True
     assert unverified_prescription.status == "analyzed"

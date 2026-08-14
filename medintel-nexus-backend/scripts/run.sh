@@ -91,16 +91,60 @@ lan_ip() {
   fi
 }
 
+# Tailscale's address for this machine, when Tailscale is running.
+#
+# Worth printing separately from the LAN address because it solves a
+# different problem. The LAN address changes every time DHCP hands out a new
+# one and only works while both devices are on the same Wi-Fi, which is why
+# the app sweeps the subnet looking for it. A Tailscale address is stable and
+# routes from anywhere — mobile data, a different network, a café — so it is
+# worth typing into the app once, and a typed-in address is never overwritten
+# by automatic detection.
+tailscale_ip() {
+  local cli ip
+  # The Mac App Store build puts a shim in /usr/local/bin that keeps
+  # answering `command -v` after the app itself is deleted, and then fails,
+  # so the output is what's checked rather than the command existing.
+  for cli in tailscale /Applications/Tailscale.app/Contents/MacOS/Tailscale; do
+    ip="$(command "$cli" ip -4 2>/dev/null | head -1 || true)"
+    if [[ -n "${ip:-}" ]]; then
+      echo "$ip"
+      return
+    fi
+  done
+  # No working CLI. The address is still readable off the interface it runs
+  # on: Tailscale uses a utun and allocates from 100.64.0.0/10. Restricted to
+  # utun because some ISPs hand out addresses in that same range.
+  if command -v ifconfig >/dev/null 2>&1; then
+    ifconfig 2>/dev/null | awk '
+      /^[a-z]/ { iface = $1 }
+      iface ~ /^utun/ && $1 == "inet" && $2 ~ /^100\./ { print $2; exit }
+    '
+  fi
+}
+
 IP="$(lan_ip || true)"
+TS_IP="$(tailscale_ip || true)"
 echo "MedIntel backend → http://0.0.0.0:${PORT}"
+echo "  from this machine : http://localhost:${PORT}/health"
 if [[ -n "${IP:-}" ]]; then
-  echo "  from this machine : http://localhost:${PORT}/health"
   echo "  from the phone    : http://${IP}:${PORT}/health"
+fi
+if [[ -n "${TS_IP:-}" ]]; then
+  echo "  over Tailscale    : http://${TS_IP}:${PORT}/health"
+  echo
+  echo "  The Tailscale address works from any network and survives this"
+  echo "  machine changing Wi-Fi, so it is the one to type into the app under"
+  echo "  Profile -> server settings. Typed-in addresses are never replaced by"
+  echo "  automatic detection. The phone needs Tailscale, signed in to the"
+  echo "  same account."
+elif [[ -z "${IP:-}" ]]; then
+  echo "  (no LAN address detected — the phone will not be able to reach this)"
+else
   echo
   echo "If the phone can't reach that, it is on a different network, on mobile"
-  echo "data, or the router isolates clients from each other."
-else
-  echo "  (no LAN address detected — the phone will not be able to reach this)"
+  echo "data, or the router isolates clients from each other. Tailscale on both"
+  echo "devices avoids all three; this prints that address too when it's up."
 fi
 echo
 echo "  pairing code      : ${SECRET}"

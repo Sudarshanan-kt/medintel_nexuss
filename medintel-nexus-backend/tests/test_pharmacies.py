@@ -11,6 +11,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app import records_db
 from app.config import settings
 from app.routers import pharmacies
 from main import app
@@ -25,7 +26,11 @@ EXACT_LAT, EXACT_LON = 13.08268, 80.27072
 @pytest.fixture(autouse=True)
 def dev_auth(monkeypatch):
     monkeypatch.setattr(settings, "auth_disabled", True)
-    pharmacies._cache.clear()
+    # The cache outlives the process now, so it also outlives a test unless
+    # it is cleared — a hit left by an earlier test would mean the next one
+    # never reaches its stand-in Overpass at all. conftest already points
+    # storage at a temp file, so this only empties that.
+    records_db.clear_pharmacy_cache()
 
 
 @pytest.fixture

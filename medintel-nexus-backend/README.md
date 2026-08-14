@@ -81,10 +81,37 @@ hangs instead, a firewall or the router's client isolation is in the way.
 
 | Phone is on | What works |
 |---|---|
+| Any network at all | **Tailscale** on both devices, signed in to the same account. `run.sh` prints the `100.x.y.z` address; type it into Profile → server settings once. See below |
 | Same Wi-Fi as this machine | Bind `0.0.0.0`, and enter the pairing code `run.sh` prints in the app once; it then finds this machine by sweeping the subnet |
 | USB cable | `adb reverse tcp:8000 tcp:8000` — the app reaches it at `localhost:8000` |
 | No shared Wi-Fi | Join this machine to the phone's hotspot. Both end up on one subnet and the sweep works normally; restart `run.sh` so it prints the new address |
 | Neither is possible | A tunnel (`cloudflared tunnel --url http://localhost:8000`) or a real deployment, with the resulting public URL set in the app's server setting. Note this one routes patient data through a third party |
+
+### Tailscale is the one that just keeps working
+
+Everything else in that table depends on where the two devices happen to be.
+The subnet sweep only finds a backend on the current Wi-Fi, and the address
+it finds changes whenever DHCP reassigns it — so moving between home, campus
+and mobile data means the app losing its backend each time, which surfaces as
+pharmacies not loading and scans that never come back.
+
+A Tailscale address does not move. Install Tailscale on this machine and on
+the phone, sign both into the same account, then:
+
+```bash
+./scripts/run.sh          # prints "over Tailscale → http://100.x.y.z:8000"
+```
+
+Type that URL into the app under Profile → server settings. It sticks:
+automatic detection never overwrites an address that was typed in, precisely
+because it can only find things on the current LAN and would otherwise undo
+this. No pairing code is needed for a typed-in address — the sweep is what
+the code guards, and naming a host directly isn't guessing.
+
+Two things it does not do. It is not faster: the traffic is the same and
+report analysis is bounded by local inference, not the network. And it is
+still plain HTTP inside the tunnel — though Tailscale encrypts device to
+device, which is more than the LAN path offers.
 
 ## Configuration
 
@@ -145,6 +172,36 @@ nothing private from anything already on the path; `AUTH_DISABLED=false`
 leaves the API open to unauthenticated `/health` and `/dev-storage` probes
 from the LAN, which is intended; and none of it makes this deployable to the
 public internet, which would need TLS and a real storage backend.
+
+## Scans survive a restart
+
+Uploads, prescriptions and reports live in `data/records.sqlite3` (created on
+first use, gitignored). They used to be dicts in `app/store.py`, which meant
+every restart — including each `--reload` file save — dropped every parsed
+prescription and every lab-report analysis. The costly loss wasn't the image,
+which was always on disk in `uploads/`; it was the OCR pass and local-model
+round trip that turned it into structured medicines, and above all the
+`verified` flag. A patient who had just read their prescription line by line
+to confirm an uncertain drug name lost that and had to do it again.
+
+`app/records_db.py` holds the schema and the record types; `app/store.py`
+still owns the pipeline. Writes are whole-record upserts (`put_prescription`,
+`put_report`), so **mutating a record object is no longer saving it** — the
+background workers save in a `finally` so every exit path persists the status
+it decided on.
+
+The pharmacy cache lives there too. It used to be a dict, so every restart
+threw away up to a day of results and sent the next search back to Overpass —
+the opposite of what that project's usage policy asks, and slow precisely
+where it shows. Measured across a real restart: 0.9s cold, then **28 ms** from
+a brand-new process, same 45 results.
+
+On startup the API resets anything still marked `queued` or `processing` to
+`failed`. Those records outlived the process; the asyncio task working on
+them didn't, and nothing restarts it, so a row left saying "processing" is a
+client polling a status that will never change. `failed` is a state the app
+already offers **Try again** on, which re-runs the pipeline over the stored
+image.
 
 ## Two things worth knowing
 

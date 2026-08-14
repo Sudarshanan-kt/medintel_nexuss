@@ -1,85 +1,67 @@
+"""The prescription and lab-report analysis pipelines.
+
+Orchestration only — OCR, structuring, and the review gate. Where the
+resulting records are kept is `app/records_db.py`'s problem; this module
+loads a record, works on it, and hands it back to be saved.
+
+That handing-back is the one thing to keep in mind when editing here. These
+records used to be dicts in this module, so mutating a dataclass was the
+save. It no longer is: a mutation that never reaches `put_prescription` /
+`put_report` is lost at the end of the request. The background workers below
+save in a `finally` for exactly that reason, so every path out of them —
+success, early return, exception — writes the state it decided on.
+"""
+
 import asyncio
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from app import ocr
+from app.records_db import (
+    PrescriptionRecord,
+    ReportRecord,
+    UploadRecord,
+    delete_prescription,
+    get_prescription,
+    get_report,
+    get_upload,
+    put_prescription,
+    put_report,
+    put_upload,
+)
 
 logger = logging.getLogger(__name__)
 
-# Real (if simple) file-based storage for scaffolding — good enough for a
-# single-instance dev/demo backend. Swap for real object storage (S3/GCS/
-# Supabase Storage) if this backend ever needs to run as more than one
-# instance or survive a restart without losing in-flight uploads.
+# Re-exported so the routers and tests keep importing records from `store`,
+# which is the seam they have always used.
+__all__ = [
+    "PrescriptionRecord",
+    "ReportRecord",
+    "UploadRecord",
+    "complete_report_upload",
+    "complete_upload",
+    "create_upload",
+    "delete_prescription",
+    "get_prescription",
+    "get_report",
+    "get_upload",
+    "put_prescription",
+    "put_report",
+    "reprocess",
+    "reprocess_report",
+    "save_upload_bytes",
+    "verify_prescription",
+]
+
+# Raw uploaded bytes stay on the filesystem rather than in the database —
+# they are the one part of a record that is large, immutable, and never
+# queried. Swap for real object storage (S3/GCS/Supabase Storage) if this
+# backend ever runs as more than one instance.
 _UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
 _UPLOADS_DIR.mkdir(exist_ok=True)
-
-
-@dataclass
-class UploadRecord:
-    id: str
-    user_id: str
-    file_name: str
-    mime_type: str
-    size_bytes: int
-    signed_url: str
-    storage_path: Optional[str] = None
-
-
-@dataclass
-class PrescriptionRecord:
-    id: str
-    user_id: str
-    status: str = "queued"
-    ocr_confidence: Optional[float] = None
-    medicines: List[dict] = field(default_factory=list)
-    created_at: float = field(default_factory=time.time)
-    image_path: Optional[str] = None
-    # Human-in-the-loop gate. A prescription is only "verified" once either
-    # the OCR read every field confidently enough to stand on its own, or
-    # the patient confirmed/corrected the uncertain ones. Risk analysis
-    # refuses to run against an unverified record — acting on a misread drug
-    # name is the worst failure this pipeline has.
-    verified: bool = False
-    verified_at: Optional[float] = None
-    # True when the patient (not the OCR) settled the uncertain fields.
-    verified_by_user: bool = False
-
-    @property
-    def needs_review(self) -> bool:
-        return self.status == "analyzed" and not self.verified
-
-    @property
-    def review_field_count(self) -> int:
-        """How many fields the review UI should highlight."""
-        return sum(len(m.get("low_confidence_fields") or []) for m in self.medicines)
-
-    @property
-    def blocking_field_count(self) -> int:
-        """How many of those are uncertain enough to hold up risk analysis."""
-        return sum(len(m.get("blocking_fields") or []) for m in self.medicines)
-
-
-@dataclass
-class ReportRecord:
-    id: str
-    user_id: str
-    status: str = "queued"
-    ocr_confidence: Optional[float] = None
-    summary: str = ""
-    metrics: List[dict] = field(default_factory=list)
-    findings: List[dict] = field(default_factory=list)
-    advice: List[dict] = field(default_factory=list)
-    created_at: float = field(default_factory=time.time)
-    image_path: Optional[str] = None
-
-
-_uploads: Dict[str, UploadRecord] = {}
-_prescriptions: Dict[str, PrescriptionRecord] = {}
-_reports: Dict[str, ReportRecord] = {}
 
 
 def create_upload(
@@ -100,41 +82,38 @@ def create_upload(
     an address the client just reached.
     """
     upload_id = f"up_{uuid.uuid4().hex[:12]}"
-    record = UploadRecord(
-        id=upload_id,
-        user_id=user_id,
-        file_name=file_name,
-        mime_type=mime_type,
-        size_bytes=size_bytes,
-        signed_url=f"{base_url.rstrip('/')}/dev-storage/{upload_id}",
+    return put_upload(
+        UploadRecord(
+            id=upload_id,
+            user_id=user_id,
+            file_name=file_name,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            signed_url=f"{base_url.rstrip('/')}/dev-storage/{upload_id}",
+        )
     )
-    _uploads[upload_id] = record
-    return record
-
-
-def get_upload(upload_id: str) -> Optional[UploadRecord]:
-    return _uploads.get(upload_id)
 
 
 def save_upload_bytes(upload_id: str, data: bytes) -> None:
     """Called by the /dev-storage PUT handler once the raw image bytes
     arrive, so the OCR stage in [complete_upload] has something to read.
     """
-    upload = _uploads.get(upload_id)
+    upload = get_upload(upload_id)
     if upload is None:
         return
     suffix = Path(upload.file_name).suffix or ".jpg"
     path = _UPLOADS_DIR / f"{upload_id}{suffix}"
     path.write_bytes(data)
     upload.storage_path = str(path)
+    put_upload(upload)
 
 
 async def _process_prescription(prescription_id: str, image_path: str) -> None:
     """Runs OCR + LLM structuring in the background, then updates the
-    record in place — mirrors the async-worker shape the Flutter client's
-    polling loop already expects (queued -> processing -> analyzed/failed).
+    record — mirrors the async-worker shape the Flutter client's polling
+    loop already expects (queued -> processing -> analyzed/failed).
     """
-    record = _prescriptions.get(prescription_id)
+    record = get_prescription(prescription_id)
     if record is None:
         return
     try:
@@ -169,6 +148,10 @@ async def _process_prescription(prescription_id: str, image_path: str) -> None:
     except Exception:
         logger.exception("Prescription processing failed for %s", prescription_id)
         record.status = "failed"
+    finally:
+        # Every branch above decided a status, including the early returns.
+        # This is what makes that decision outlive the task.
+        put_prescription(record)
 
 
 def _to_medicine_out(raw: dict, index: int, words) -> dict:
@@ -194,18 +177,21 @@ def _to_medicine_out(raw: dict, index: int, words) -> dict:
 
 def complete_upload(upload_id: str, user_id: str) -> PrescriptionRecord:
     prescription_id = f"rx_{uuid.uuid4().hex[:12]}"
-    upload = _uploads.get(upload_id)
+    upload = get_upload(upload_id)
     record = PrescriptionRecord(
         id=prescription_id,
         user_id=user_id,
         status="processing",
         image_path=upload.storage_path if upload else None,
     )
-    _prescriptions[prescription_id] = record
 
     if upload is None or upload.storage_path is None:
         record.status = "failed"
-        return record
+        return put_prescription(record)
+
+    # Saved before the task starts, not after: the task looks the record up
+    # by id, and a client polling this id must find it either way.
+    put_prescription(record)
 
     # Fire-and-forget: the client polls GET /prescriptions/{id} for the
     # terminal status rather than waiting on this request.
@@ -213,16 +199,12 @@ def complete_upload(upload_id: str, user_id: str) -> PrescriptionRecord:
     return record
 
 
-def get_prescription(prescription_id: str) -> Optional[PrescriptionRecord]:
-    return _prescriptions.get(prescription_id)
-
-
 def reprocess(prescription_id: str) -> Optional[PrescriptionRecord]:
     """Re-runs OCR + structuring on the same stored image — for when a
     result came back wrong and the user wants another attempt rather than
     re-uploading the same photo.
     """
-    record = _prescriptions.get(prescription_id)
+    record = get_prescription(prescription_id)
     if record is None or record.image_path is None:
         return record
     record.status = "processing"
@@ -231,6 +213,7 @@ def reprocess(prescription_id: str) -> Optional[PrescriptionRecord]:
     record.verified = False
     record.verified_at = None
     record.verified_by_user = False
+    put_prescription(record)
     asyncio.create_task(_process_prescription(prescription_id, record.image_path))
     return record
 
@@ -255,8 +238,13 @@ def verify_prescription(
     (by omission) entries they deleted. Every field on it is treated as
     ground truth from here on: a human read the page, which beats any OCR
     score, so confidences go to 1.0 and the review list empties.
+
+    This is the record it matters most to persist. It is the one thing here
+    a person did by hand, reading their own prescription line by line, and
+    the only way to reproduce it after a restart is to ask them to do it
+    again.
     """
-    record = _prescriptions.get(prescription_id)
+    record = get_prescription(prescription_id)
     if record is None:
         return None
 
@@ -291,7 +279,7 @@ def verify_prescription(
     record.verified = True
     record.verified_at = time.time()
     record.verified_by_user = True
-    return record
+    return put_prescription(record)
 
 
 # ── Lab/diagnostic reports — same shape as the prescriptions pipeline
@@ -299,7 +287,7 @@ def verify_prescription(
 
 
 async def _process_report(report_id: str, image_path: str) -> None:
-    record = _reports.get(report_id)
+    record = get_report(report_id)
     if record is None:
         return
     try:
@@ -322,6 +310,8 @@ async def _process_report(report_id: str, image_path: str) -> None:
     except Exception:
         logger.exception("Report processing failed for %s", report_id)
         record.status = "failed"
+    finally:
+        put_report(record)
 
 
 def _to_metric_out(raw: dict) -> dict:
@@ -358,31 +348,28 @@ def _to_advice_out(raw: dict) -> dict:
 
 def complete_report_upload(upload_id: str, user_id: str) -> ReportRecord:
     report_id = f"rpt_{uuid.uuid4().hex[:12]}"
-    upload = _uploads.get(upload_id)
+    upload = get_upload(upload_id)
     record = ReportRecord(
         id=report_id,
         user_id=user_id,
         status="processing",
         image_path=upload.storage_path if upload else None,
     )
-    _reports[report_id] = record
 
     if upload is None or upload.storage_path is None:
         record.status = "failed"
-        return record
+        return put_report(record)
 
+    put_report(record)
     asyncio.create_task(_process_report(report_id, upload.storage_path))
     return record
 
 
-def get_report(report_id: str) -> Optional[ReportRecord]:
-    return _reports.get(report_id)
-
-
 def reprocess_report(report_id: str) -> Optional[ReportRecord]:
-    record = _reports.get(report_id)
+    record = get_report(report_id)
     if record is None or record.image_path is None:
         return record
     record.status = "processing"
+    put_report(record)
     asyncio.create_task(_process_report(report_id, record.image_path))
     return record

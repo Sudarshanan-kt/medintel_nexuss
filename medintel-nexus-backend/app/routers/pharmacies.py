@@ -15,6 +15,13 @@ cache key coarse on purpose: everyone in a neighbourhood shares one entry.
 Pharmacies do not move, and Overpass is donated infrastructure whose usage
 policy asks callers to cache rather than re-query.
 
+The cache is on disk (`app/records_db.py`) rather than in memory, because a
+restart used to throw away a day's worth of it and send the next search
+straight back to Overpass. That is the opposite of what the usage policy
+asks, and it is slow exactly when it is most visible: mirrors fail
+independently, so on a network that can only route to one of them a cold
+lookup takes seconds or doesn't finish at all.
+
 Overpass is still contacted, just at arm's length. Removing it entirely
 means self-hosting an OSM extract — a real option, and a much larger one.
 """
@@ -23,11 +30,12 @@ import asyncio
 import logging
 import math
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import httpx
 from fastapi import APIRouter, Depends, Query
 
+from app import records_db
 from app.envelope import success
 from app.security import get_current_user_id
 
@@ -75,31 +83,27 @@ _MAX_CACHE_ENTRIES = 512
 # Overpass asks that clients identify themselves.
 _USER_AGENT = "MedIntelNexus/1.0 (patient pharmacy finder)"
 
-_cache: Dict[Tuple[float, float, int], Tuple[float, List[dict]]] = {}
-
-
 def _snap(value: float) -> float:
     return round(round(value / _GRID_DEGREES) * _GRID_DEGREES, 6)
 
 
 def _cached(key: Tuple[float, float, int]) -> Optional[List[dict]]:
-    entry = _cache.get(key)
-    if entry is None:
-        return None
-    stored_at, pharmacies = entry
-    if time.time() - stored_at > _CACHE_TTL_SECONDS:
-        _cache.pop(key, None)
-        return None
-    return pharmacies
+    lat, lon, radius_m = key
+    return records_db.get_cached_pharmacies(
+        lat, lon, radius_m, max_age_seconds=_CACHE_TTL_SECONDS
+    )
 
 
 def _store(key: Tuple[float, float, int], pharmacies: List[dict]) -> None:
-    if len(_cache) >= _MAX_CACHE_ENTRIES:
-        # Drop the oldest entry. A plain dict is enough at this size and
-        # keeps the module dependency-free.
-        oldest = min(_cache, key=lambda k: _cache[k][0])
-        _cache.pop(oldest, None)
-    _cache[key] = (time.time(), pharmacies)
+    lat, lon, radius_m = key
+    records_db.put_cached_pharmacies(
+        lat,
+        lon,
+        radius_m,
+        pharmacies,
+        max_age_seconds=_CACHE_TTL_SECONDS,
+        max_entries=_MAX_CACHE_ENTRIES,
+    )
 
 
 def _build_query(lat: float, lon: float, radius_m: int) -> str:
