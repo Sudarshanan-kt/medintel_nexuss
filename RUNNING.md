@@ -133,6 +133,68 @@ rather than inventing values, so these fail differently.
 Report structuring against a real multi-page lab PDF takes around three
 minutes on CPU. That is the model, not the pipeline.
 
+## Caregiver sign-in, without an SMS provider
+
+Caregivers sign in with a six-digit code and no password. Out of the box the
+screen says "Text-message sign-in is not configured yet" — that is Auth
+refusing the request with `unsupported phone provider`, before any code is
+generated.
+
+Wiring up real SMS is not the small job it looks like. Twilio, MessageBird
+and Vonage all refuse to deliver to an Indian number until the *sender* has
+completed DLT registration with TRAI: a registered business entity, an
+approved header, an approved template. For a demo, that is not worth it.
+
+So the code is shown on screen instead of texted. Auth still generates it,
+expires it and verifies it exactly as it would for a real message — a Send
+SMS hook writes it to a table in this database rather than handing it to a
+provider, and the app reads it back. A new code every sign-in, and a real
+Supabase session at the end of it. Nothing is faked but delivery.
+
+**1. Apply the migration**
+
+`supabase/migrations/20260815193000_demo_otp_on_screen.sql` creates three
+things: `demo_otp_phones` (the allowlist), `demo_otp_codes` (the latest code
+per number), and `public.send_sms_hook`. Add each number you'll demo with to
+the allowlist — digits only, no `+`:
+
+```sql
+insert into public.demo_otp_phones (phone, note)
+values ('919876543210', 'my handset') on conflict do nothing;
+```
+
+**2. Dashboard → Authentication → Providers → Phone**
+
+Switch the provider **on** — that alone clears the error above. Then **clear
+the Test OTP field**: Auth checks that list before it reaches any hook, so a
+number listed there gets a fixed code and the rotating one never runs.
+
+**3. Dashboard → Authentication → Hooks → Send SMS hook**
+
+Enable it, type Postgres, schema `public`, function `send_sms_hook`. The SMS
+provider settings go inert once a hook is enabled, so the provider fields can
+hold anything.
+
+**4. `.env`**
+
+```
+DEMO_OTP_ON_SCREEN=true
+```
+
+The code step now shows a "Demo sign-in — no text message sent" banner with
+the live code in it. Anything other than `true` puts the normal SMS flow back
+with no code on screen.
+
+A number that isn't on the allowlist is refused by the hook, and the screen
+says so rather than showing a provider error.
+
+Two things worth knowing. SMS OTP Expiry is 60 seconds by default, which is
+tight when you're reading a code off a projector — raise it on the Phone
+panel if a demo runs long. And a code readable without a session is a code
+anyone with the anon key can read, which is enough to sign in as that number:
+keep the allowlist to numbers you own, and take `DEMO_OTP_ON_SCREEN` out of
+`.env` before this build goes near anybody's real health data.
+
 ## Demoing it
 
 Have `ollama serve` and `./scripts/run.sh` running before you start, and

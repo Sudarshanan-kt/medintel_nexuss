@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/demo_otp.dart';
 import '../../../core/constants/google_auth_config.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/network/dio_client.dart';
@@ -190,9 +191,9 @@ class AuthRepositoryImpl implements AuthRepository {
       // a bare `await` here would leave the sign-in button spinning forever
       // with no way out. A timeout turns that into a clear, recoverable error.
       final googleUser = await googleSignIn.signIn().timeout(
-        const Duration(seconds: 25),
-        onTimeout: () => throw TimeoutException('Google sign-in timed out'),
-      );
+            const Duration(seconds: 25),
+            onTimeout: () => throw TimeoutException('Google sign-in timed out'),
+          );
       if (googleUser == null) {
         // User cancelled the picker.
         return const ResultFailure(
@@ -433,6 +434,14 @@ class AuthRepositoryImpl implements AuthRepository {
     if (lower.contains('sms provider') ||
         lower.contains('unsupported phone provider') ||
         lower.contains('phone provider')) {
+      // With demo sign-in on, this specific error means the number isn't in
+      // the dashboard's Test OTP list, so Auth went looking for a real SMS
+      // provider and found none. Naming the cause saves guessing at which
+      // number was meant to be registered.
+      if (DemoOtpConfig.isEnabled) {
+        return "That number isn't set up for demo sign-in. "
+            'Use a registered demo number.';
+      }
       // Nothing the user can do — the project has no SMS provider set up.
       return 'Text-message sign-in is not configured yet. '
           'Contact support.';

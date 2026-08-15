@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medintel_nexus/features/auth/application/auth_controller.dart';
+import 'package:medintel_nexus/features/auth/data/demo_otp_repository.dart';
 import 'package:medintel_nexus/features/auth/domain/auth_user.dart';
 import 'package:medintel_nexus/features/auth/presentation/caregiver_login_screen.dart';
 
@@ -45,12 +47,22 @@ class _FakeAuthController extends AuthController {
   }
 }
 
+/// Stands in for the table the Send SMS hook writes to.
+class _FakeDemoOtpRepository implements DemoOtpRepository {
+  static final codes = <String, String>{};
+
+  @override
+  Future<String?> latestCodeFor(String phoneE164) async =>
+      codes[phoneE164.trim()];
+}
+
 Future<void> _pump(WidgetTester tester) async {
   _FakeAuthController.reset();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         authControllerProvider.overrideWith(_FakeAuthController.new),
+        demoOtpRepositoryProvider.overrideWithValue(_FakeDemoOtpRepository()),
       ],
       child: const MaterialApp(home: CaregiverLoginScreen()),
     ),
@@ -206,5 +218,109 @@ void main() {
 
     expect(find.text('Text me a code'), findsOneWidget);
     expect(find.text('Enter your code'), findsNothing);
+  });
+
+  group('demo sign-in shows the code instead of texting it', () {
+    tearDown(() {
+      dotenv.clean();
+      _FakeDemoOtpRepository.codes.clear();
+    });
+
+    testWidgets(
+        'the code step prints what Auth generated, and says no text '
+        'was sent', (tester) async {
+      dotenv.testLoad(fileInput: 'DEMO_OTP_ON_SCREEN=true');
+      _FakeDemoOtpRepository.codes['+919876543210'] = '424242';
+      await _pump(tester);
+
+      // The first step should already stop promising a text message.
+      expect(find.text('Show my code'), findsOneWidget);
+      expect(find.text('Text me a code'), findsNothing);
+
+      await tester.enterText(find.byType(TextFormField).first, '9876543210');
+      await tester.tap(find.text('Show my code'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('424242'), findsOneWidget);
+      expect(find.text('Demo sign-in — no text message sent'), findsOneWidget);
+      expect(find.textContaining('We texted'), findsNothing);
+      // Still a real send — Auth generates and checks the code either way.
+      expect(_FakeAuthController.calls, ['send:+919876543210']);
+    });
+
+    testWidgets('a resend shows the new code, not the old one', (tester) async {
+      // The whole point of the hook over a fixed test OTP: Auth generates a
+      // fresh code per send, and the screen must not keep showing the last.
+      dotenv.testLoad(fileInput: 'DEMO_OTP_ON_SCREEN=true');
+      _FakeDemoOtpRepository.codes['+919876543210'] = '111111';
+      await _pump(tester);
+
+      await tester.enterText(find.byType(TextFormField).first, '9876543210');
+      await tester.tap(find.text('Show my code'));
+      await tester.pumpAndSettle();
+      expect(find.text('111111'), findsOneWidget);
+
+      _FakeDemoOtpRepository.codes['+919876543210'] = '222222';
+      await tester.pump(const Duration(seconds: 61)); // clear the cooldown
+      await tester.tap(find.text('Resend code'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('222222'), findsOneWidget);
+      expect(find.text('111111'), findsNothing);
+    });
+
+    testWidgets('an unreadable code says so rather than showing a blank',
+        (tester) async {
+      // No text message is coming, so an empty banner would leave the
+      // caregiver with nothing at all and no way to know why.
+      dotenv.testLoad(fileInput: 'DEMO_OTP_ON_SCREEN=true');
+      await _pump(tester);
+
+      await tester.enterText(find.byType(TextFormField).first, '9876543210');
+      await tester.tap(find.text('Show my code'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reading the code…'), findsOneWidget);
+
+      // Drain the retry's delay: a miss schedules one more lookup, and a
+      // Future.delayed still in flight fails the test on teardown.
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      expect(find.text('Reading the code…'), findsOneWidget);
+    });
+
+    testWidgets('off by default: the SMS flow is untouched', (tester) async {
+      dotenv.testLoad(fileInput: 'DEMO_OTP_ON_SCREEN=');
+      await _pump(tester);
+
+      expect(find.text('Text me a code'), findsOneWidget);
+      await _submitPhone(tester, '9876543210');
+
+      expect(find.textContaining('We texted'), findsOneWidget);
+      expect(find.text('Demo sign-in — no text message sent'), findsNothing);
+    });
+  });
+
+  testWidgets('the backdrop motifs reach the bottom of a tall screen',
+      (tester) async {
+    // The screen is shorter than a phone, so the Stack's scroll view — its
+    // only unpositioned child — shrink-wraps unless the body is forced to
+    // expand. When it does, Positioned.fill fills the *content* rather than
+    // the screen: the lower motifs collect just under the card and the whole
+    // bottom third of the page is bare.
+    tester.view.physicalSize = const Size(400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pump(tester);
+
+    final motif = find.byWidgetPredicate(
+      (w) => w is Icon && w.icon == Icons.calendar_month_rounded,
+    );
+    expect(motif, findsOneWidget);
+    // Placed at Alignment(_, 0.80) — it belongs near the bottom edge, not
+    // wherever the content happens to end.
+    expect(tester.getCenter(motif).dy, greaterThan(700));
   });
 }

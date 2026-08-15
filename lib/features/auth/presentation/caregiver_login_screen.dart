@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
+import '../../../core/constants/demo_otp.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../application/auth_controller.dart';
+import '../data/demo_otp_repository.dart';
 import '../domain/auth_user.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,6 +85,10 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
   int _resendIn = 0;
   Timer? _resendTimer;
 
+  /// The code Auth just generated, when it's being shown rather than texted.
+  /// Null until a send succeeds, and again on every new send.
+  String? _demoCode;
+
   @override
   void dispose() {
     _resendTimer?.cancel();
@@ -129,7 +135,27 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
       _errorMessage = error;
       if (error == null) _codeSent = true;
     });
-    if (error == null) _startResendCooldown();
+    if (error == null) {
+      _startResendCooldown();
+      if (DemoOtpConfig.isEnabled) await _loadDemoCode();
+    }
+  }
+
+  /// Fetches the code Auth generated for this send, for display.
+  ///
+  /// The hook writes it inside the send request, so it is there by the time
+  /// that request returns. The one retry covers replication lag rather than a
+  /// race — and a miss only costs the on-screen copy, never the sign-in.
+  Future<void> _loadDemoCode() async {
+    setState(() => _demoCode = null);
+    final repo = ref.read(demoOtpRepositoryProvider);
+    var code = await repo.latestCodeFor(_e164);
+    if (code == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      code = await repo.latestCodeFor(_e164);
+    }
+    if (!mounted) return;
+    setState(() => _demoCode = code);
   }
 
   Future<void> _verify() async {
@@ -159,6 +185,7 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
       _resendIn = 0;
       _code.clear();
       _errorMessage = null;
+      _demoCode = null;
     });
   }
 
@@ -168,110 +195,122 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
 
     return Scaffold(
       backgroundColor: _bg,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _CaregiverBackdrop()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-                      onPressed: () =>
-                          _codeSent ? _changeNumber() : context.backOr(Routes.signIn),
+      // SizedBox.expand matters, the same way it does on the patient screen:
+      // the Stack's only unpositioned child is the scroll view, which gets
+      // loose constraints and shrink-wraps its content. The Stack then takes
+      // that height, and Positioned.fill fills the content — not the screen —
+      // so the lower motifs land under the card instead of in the bottom
+      // corners and everything below is bare.
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            const Positioned.fill(child: _CaregiverBackdrop()),
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+                        onPressed: () => _codeSent
+                            ? _changeNumber()
+                            : context.backOr(Routes.signIn),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const _CaregiverMark(),
-                  const SizedBox(height: 22),
-                  Text(
-                    _codeSent ? 'Enter your code' : 'Caregiver sign in',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: _ink,
-                      letterSpacing: -0.4,
+                    const SizedBox(height: 8),
+                    const _CaregiverMark(),
+                    const SizedBox(height: 22),
+                    Text(
+                      _codeSent ? 'Enter your code' : 'Caregiver sign in',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
+                        letterSpacing: -0.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _codeSent
-                        ? 'We texted a 6-digit code to\n$_e164'
-                        : 'Keep track of the medicines and appointments\n'
-                            'of someone you look after.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: _muted,
-                      height: 1.45,
+                    const SizedBox(height: 6),
+                    Text(
+                      !_codeSent
+                          ? 'Keep track of the medicines and appointments\n'
+                              'of someone you look after.'
+                          : DemoOtpConfig.isEnabled
+                              // Nothing was texted, so don't say it was.
+                              ? 'Signing in as\n$_e164'
+                              : 'We texted a 6-digit code to\n$_e164',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: _muted,
+                        height: 1.45,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 26),
+                    const SizedBox(height: 26),
 
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: _fieldStroke),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _violetDeep.withValues(alpha: 0.06),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_errorMessage != null) ...[
-                          _ErrorBanner(message: _errorMessage!),
-                          const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: _fieldStroke),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _violetDeep.withValues(alpha: 0.06),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
                         ],
-                        if (!_codeSent)
-                          ..._phoneStep(isLoading)
-                        else
-                          ..._codeStep(isLoading),
-                      ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_errorMessage != null) ...[
+                            _ErrorBanner(message: _errorMessage!),
+                            const SizedBox(height: 14),
+                          ],
+                          if (!_codeSent)
+                            ..._phoneStep(isLoading)
+                          else
+                            ..._codeStep(isLoading),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 22),
-                  // The way back for someone who took the wrong door.
-                  Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text(
-                          'Managing your own medicines?',
-                          style: TextStyle(color: _muted, fontSize: 13.5),
-                        ),
-                        TextButton(
-                          onPressed: () => context.backOr(Routes.signIn),
-                          child: const Text(
-                            'Patient sign in',
-                            style: TextStyle(
-                              color: _violetDeep,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.5,
+                    const SizedBox(height: 22),
+                    // The way back for someone who took the wrong door.
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text(
+                            'Managing your own medicines?',
+                            style: TextStyle(color: _muted, fontSize: 13.5),
+                          ),
+                          TextButton(
+                            onPressed: () => context.backOr(Routes.signIn),
+                            child: const Text(
+                              'Patient sign in',
+                              style: TextStyle(
+                                color: _violetDeep,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -305,19 +344,25 @@ class _CaregiverLoginScreenState extends ConsumerState<CaregiverLoginScreen> {
         ),
         const SizedBox(height: 16),
         _PrimaryButton(
-          label: 'Text me a code',
+          label: DemoOtpConfig.isEnabled ? 'Show my code' : 'Text me a code',
           isLoading: isLoading,
           onPressed: isLoading ? null : _sendCode,
         ),
         const SizedBox(height: 14),
-        const Text(
-          "No password needed — we'll text a code each time you sign in.",
+        Text(
+          DemoOtpConfig.isEnabled
+              ? 'No password needed — the code appears on the next screen.'
+              : "No password needed — we'll text a code each time you sign in.",
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12.5, color: _muted, height: 1.4),
+          style: const TextStyle(fontSize: 12.5, color: _muted, height: 1.4),
         ),
       ];
 
   List<Widget> _codeStep(bool isLoading) => [
+        if (DemoOtpConfig.isEnabled) ...[
+          _DemoCodeBanner(code: _demoCode),
+          const SizedBox(height: 14),
+        ],
         _Field(
           controller: _code,
           hint: '6-digit code',
@@ -619,6 +664,80 @@ class _PrimaryButton extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+      ),
+    );
+  }
+}
+
+/// The sign-in code, on screen, because no SMS was sent.
+///
+/// Labelled rather than quietly shown: someone watching a demo should be
+/// able to see that this stands in for a text message, not that the app
+/// leaks codes. See [DemoOtpConfig] for what makes it appear.
+class _DemoCodeBanner extends StatelessWidget {
+  const _DemoCodeBanner({required this.code});
+
+  /// Null while the code is still being read back, or if it couldn't be —
+  /// which is worth saying out loud rather than showing an empty space, since
+  /// there is no text message coming to fall back on.
+  final String? code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _violetSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _violet.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.phonelink_lock_rounded,
+            color: _violetDeep,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Demo sign-in — no text message sent',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                if (code != null)
+                  Text(
+                    code!,
+                    style: const TextStyle(
+                      color: _violetDeep,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      // Wide enough to read off a projector, and to copy by
+                      // eye without losing the place.
+                      letterSpacing: 6,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Reading the code…',
+                    style: TextStyle(
+                      color: _violetDeep,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
