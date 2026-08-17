@@ -7,7 +7,9 @@ import '../../../app/router/route_names.dart';
 import '../application/reports_controller.dart';
 import '../data/health_advice.dart';
 import '../domain/medical_report.dart';
+import '../domain/metric_reference.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/widgets.dart';
 
 /// Crash-proof report viewer.
 ///
@@ -294,13 +296,32 @@ class ReportViewerScreen extends ConsumerWidget {
         ],
 
         // ── Lab Findings ─────────────────────────────────────────────────
+        // Grouped the way the lab prints them, because a flat list of
+        // twenty values buries the two that matter. A critical reading gets
+        // said once, at the top, rather than left to be spotted in a row.
         if (report.metrics.isNotEmpty) ...[
           _header('Lab Findings'),
-          _card(
-            Column(
-              children: [for (final m in report.metrics) _metricRow(m)],
+          if (worstSeverity(report.metrics) == MetricSeverity.critical)
+            _criticalBanner(report.metrics),
+          for (final entry in groupByPanel(report.metrics).entries) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 14, 4, 6),
+              child: Text(
+                entry.key.label,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: _muted,
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
-          ),
+            _card(
+              Column(
+                children: [for (final m in entry.value) _metricRow(context, m)],
+              ),
+            ),
+          ],
         ],
 
         // ── Risk Analysis ────────────────────────────────────────────────
@@ -597,7 +618,137 @@ class ReportViewerScreen extends ConsumerWidget {
         child: child,
       );
 
-  Widget _metricRow(ReportMetric m) {
+  /// Said once at the top of the results, so a panic-range value is not left
+  /// to be noticed halfway down a list of twenty rows.
+  Widget _criticalBanner(List<ReportMetric> metrics) {
+    final critical = [
+      for (final m in metrics)
+        if (gradeFor(m).severity == MetricSeverity.critical) m.label,
+    ];
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x14DC2626),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x33DC2626)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: _danger, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Show this to a doctor',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _danger,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${critical.join(', ')} '
+                  '${critical.length == 1 ? 'is' : 'are'} far enough outside '
+                  'the normal range to be worth medical advice promptly. '
+                  'This is a reading, not a diagnosis.',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    color: _ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// What the analyte measures, in plain English, for the ones we can
+  /// describe accurately. Offline by design — no model call, so it still
+  /// works with the backend down.
+  void _showExplainer(BuildContext context, ReportMetric m) {
+    final explainer = explainerFor(m.label);
+    if (explainer == null) return;
+    final grade = gradeFor(m);
+    showAppSheet<void>(
+      context: context,
+      builder: (_) => Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              m.label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              explainer.what,
+              style: const TextStyle(fontSize: 14, height: 1.5, color: _ink),
+            ),
+            const SizedBox(height: 16),
+            // Only the direction this reading actually went — a normal
+            // result gets both, since neither has happened.
+            if (grade.severity == MetricSeverity.normal ||
+                grade.isHigh) ...[
+              const Text(
+                'When it is high',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: _muted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                explainer.high,
+                style: const TextStyle(fontSize: 13.5, height: 1.5, color: _ink),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (grade.severity == MetricSeverity.normal || !grade.isHigh) ...[
+              const Text(
+                'When it is low',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: _muted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                explainer.low,
+                style: const TextStyle(fontSize: 13.5, height: 1.5, color: _ink),
+              ),
+              const SizedBox(height: 12),
+            ],
+            const Text(
+              'General information about the test, not advice about you. '
+              'Your doctor reads these alongside your history.',
+              style: TextStyle(fontSize: 12, height: 1.45, color: _muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _metricRow(BuildContext context, ReportMetric m) {
+    final grade = gradeFor(m);
+    final explainer = explainerFor(m.label);
     final out = m.isOutOfRange;
     final hasLow = m.refLow.isFinite && m.refLow > -1e11;
     final hasHigh = m.refHigh.isFinite && m.refHigh < 1e11;
@@ -618,60 +769,88 @@ class ReportViewerScreen extends ConsumerWidget {
       range = '';
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // Severity drives the colour: a value a hair over the line should not
+    // shout as loudly as one in panic range.
+    final badgeColour = switch (grade.severity) {
+      MetricSeverity.normal => _muted,
+      MetricSeverity.mild => const Color(0xFFB45309),
+      MetricSeverity.moderate || MetricSeverity.critical => _danger,
+    };
+
+    return InkWell(
+      onTap: explainer == null ? null : () => _showExplainer(context, m),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          m.label,
+                          style: const TextStyle(fontSize: 14, color: _ink),
+                        ),
+                      ),
+                      // Only advertise the tap where there is something to
+                      // show — a dead affordance is worse than none.
+                      if (explainer != null) ...[
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 13,
+                          color: _muted,
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (range.isNotEmpty)
+                    Text(
+                      'Ref $range${m.unit.isEmpty ? '' : ' ${m.unit}'}',
+                      style: const TextStyle(fontSize: 11, color: _muted),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  m.label,
-                  style: const TextStyle(fontSize: 14, color: _ink),
+                  '${fmt(m.value)}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: out ? badgeColour : _ink,
+                  ),
                 ),
-                if (range.isNotEmpty)
-                  Text(
-                    'Ref $range${m.unit.isEmpty ? '' : ' ${m.unit}'}',
-                    style: const TextStyle(fontSize: 11, color: _muted),
+                if (out)
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: badgeColour.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      grade.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: badgeColour,
+                      ),
+                    ),
                   ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${fmt(m.value)}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: out ? _danger : _ink,
-                ),
-              ),
-              if (out)
-                Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1FDC2626),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    m.value > m.refHigh ? 'High' : 'Low',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: _danger,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
