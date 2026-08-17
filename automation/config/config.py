@@ -23,7 +23,8 @@ class Config:
 
     # Path configuration
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+    # Use "Test Results" folder at repository root for compliance with Phase 7 specs
+    REPORTS_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "Test Results"))
     SCREENSHOTS_DIR = os.path.join(REPORTS_DIR, "Screenshots")
     LOGS_DIR = os.path.join(REPORTS_DIR, "Logs")
     EXCEL_DIR = os.path.join(REPORTS_DIR, "Excel")

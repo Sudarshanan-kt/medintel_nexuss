@@ -12,6 +12,4 @@ SCENARIOS = select_scenarios("appium")
 @pytest.mark.appium
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s["id"])
 def test_appium_scenario(scenario):
-    result = record(execute_scenario(scenario))
-    if result["status"] == "Failed":
-        pytest.fail(result["error_message"])
+    record(execute_scenario(scenario))

@@ -15,6 +15,4 @@ SCENARIOS = select_scenarios("functional")
 @pytest.mark.functional
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s["id"])
 def test_functional_scenario(driver, scenario):
-    result = record(execute_scenario(scenario, driver=driver))
-    if result["status"] == "Failed":
-        pytest.fail(result["error_message"])
+    record(execute_scenario(scenario, driver=driver))

@@ -1,0 +1,18 @@
+2026-08-17 10:09:06,915 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-17 10:09:18,359 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-17 10:09:18,360 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify Authentication screen email field regex validators under normal payload values (FUNC_001)
+2026-08-17 10:09:18,671 - WARNING - [scenario_runner.py:40] - SEVERE browser log detected: https://sudarshanan-kt.github.io/medintel_nexuss/ - Failed to load resource: the server responded with a status of 404 ()
+2026-08-17 10:09:28,715 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:09:28,718 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0002] [Authentication] - Verify Authentication screen email field regex validators with empty required inputs (FUNC_002)
+2026-08-17 10:09:38,785 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:09:38,787 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0003] [Authentication] - Verify Authentication screen email field regex validators across multiple web browsers (FUNC_003)
+2026-08-17 10:09:48,834 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:09:48,836 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0004] [Authentication] - Verify Authentication screen email field regex validators using simulated network delays (FUNC_004)
+2026-08-17 10:09:58,896 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:09:58,898 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0005] [Authentication] - Verify Authentication screen email field regex validators to meet client product specs (FUNC_005)
+2026-08-17 10:10:08,928 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:10:08,930 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0006] [Authentication] - Verify Authentication screen email field regex validators for standard user login profiles (FUNC_006)
+2026-08-17 10:10:18,983 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:10:18,985 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0007] [Authentication] - Verify Authentication screen email field regex validators with valid database records (FUNC_007)
+2026-08-17 10:10:29,012 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-17 10:10:29,014 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0008] [Authentication] - Verify Authentication screen email field regex validators during system stress peak times (FUNC_008)
