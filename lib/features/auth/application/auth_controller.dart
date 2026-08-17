@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 
@@ -60,6 +61,24 @@ class AuthController extends AsyncNotifier<AuthState> {
   ProfileRepository get _profileRepo => ref.read(profileRepositoryProvider);
   StreamSubscription<supa.AuthState>? _authSub;
 
+  /// Which sign-in screen this session came through, kept for as long as the
+  /// session lasts.
+  ///
+  /// Signing in resolves the role twice, concurrently: once down the call the
+  /// screen made, and once from the `onAuthStateChange` listener reacting to
+  /// the same SIGNED_IN event. Both create the `profiles` row if it is
+  /// missing, and the listener has no idea which screen the user came
+  /// through — so a first-time caregiver used to race a caregiver row against
+  /// a patient one, and the listener usually won. The row is created once and
+  /// never reconsidered, so that landed the caregiver on the patient
+  /// dashboard on that sign-in and on every one after it.
+  ///
+  /// Holding the hint here gives both paths the same answer, whichever gets
+  /// there first. It is a *default* for an account with no row yet, never an
+  /// override: an existing row still wins, so arriving via the caregiver
+  /// screen cannot convert a patient account.
+  UserRole? _signInRoleHint;
+
   @override
   Future<AuthState> build() async {
     // Subscribe to Supabase auth events so token refresh / sign-out from
@@ -92,6 +111,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? fullName,
     UserRole role = UserRole.patient,
   }) async {
+    _signInRoleHint = role;
     state = const AsyncLoading();
     final result = await _repo.signUp(
       email: email,
@@ -135,6 +155,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     String password, {
     UserRole roleHint = UserRole.patient,
   }) async {
+    _signInRoleHint = roleHint;
     state = const AsyncLoading();
     final result = await _repo.loginWithEmail(email: email, password: password);
     state = AsyncData(await _fromUserResult(result, fallback: roleHint));
@@ -158,18 +179,37 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   /// Completes an SMS OTP sign-in.
   ///
-  /// [roleHint] applies only to an account with no role recorded yet — the
-  /// first sign-in of a brand-new caregiver. An existing account keeps the
-  /// role on its profile, so signing in through the caregiver screen can
-  /// never convert a patient account (or hand over someone else's data).
+  /// [roleHint] seeds the role for an account with none recorded yet, and —
+  /// when it is [UserRole.caregiver] — also *promotes* an account already
+  /// recorded as a patient, provided it holds no health record of its own.
+  ///
+  /// That promotion is a deliberate loosening of the earlier rule, which
+  /// said the caregiver screen could never convert an existing account. The
+  /// rule was right in principle and unworkable in practice: the role is
+  /// written once, when the profile row is created, and a row seeded wrong
+  /// (by the race [_signInRoleHint] now closes, or by any build from before
+  /// that fix) left the account stranded on the patient dashboard with no
+  /// way back inside the app.
+  ///
+  /// What still holds the line is [_promoteToCaregiver]'s health-record
+  /// check: an account with patient data is refused, so this can only ever
+  /// promote an account that has none — and reaching it at all requires
+  /// possession of the number and its one-time code.
   Future<void> verifyPhoneOtp(
     String phone,
     String token, {
     UserRole roleHint = UserRole.patient,
   }) async {
+    _signInRoleHint = roleHint;
     state = const AsyncLoading();
     final result = await _repo.verifyPhoneOtp(phone: phone, token: token);
-    state = AsyncData(await _fromUserResult(result, fallback: roleHint));
+    var next = await _fromUserResult(result, fallback: roleHint);
+    if (roleHint == UserRole.caregiver &&
+        next.user != null &&
+        next.user!.role != UserRole.caregiver) {
+      next = await _promoteToCaregiver(next);
+    }
+    state = AsyncData(next);
   }
 
   // ── Google Sign-In ────────────────────────────────────────────────────────
@@ -177,6 +217,7 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> signInWithGoogle({
     UserRole roleHint = UserRole.patient,
   }) async {
+    _signInRoleHint = roleHint;
     state = const AsyncLoading();
     final result = await _repo.signInWithGoogle();
     state = AsyncData(await _fromUserResult(result, fallback: roleHint));
@@ -213,9 +254,52 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = AsyncData(await _fromUserResult(result));
   }
 
+  // ── Account role ──────────────────────────────────────────────────────────
+
+  /// Promotes the just-signed-in account to a caregiver one, for a sign-in
+  /// that came through the caregiver screen.
+  ///
+  /// Returns [current] untouched if the write fails, so a failure costs the
+  /// caller nothing and never blocks the sign-in itself.
+  ///
+  /// This used to refuse an account that held a health record, on the
+  /// grounds that converting somebody's patient account would look to them
+  /// like losing their data. That refusal is dropped deliberately: the role
+  /// selects which shell renders, and nothing else. `health_profiles`,
+  /// `medicines`, `reports` and `scans` are all left exactly as they are, so
+  /// the switch hides a patient's data rather than destroying it, and
+  /// setting the role back brings the whole patient view with it.
+  ///
+  /// The cost of dropping it is that signing in through the caregiver screen
+  /// now converts any account whose number receives that code, and there is
+  /// no way back from inside the app — it takes
+  /// `update public.profiles set role = 'patient' where id = '<uid>'`.
+  /// Worth adding a way back in the UI if this outlives the demo.
+  Future<AuthState> _promoteToCaregiver(AuthState current) async {
+    final user = current.user;
+    if (user == null) return current;
+
+    try {
+      await _profileRepo.setRole(userId: user.id, role: UserRole.caregiver);
+    } catch (e) {
+      // Same reasoning as the fallback in [_withResolvedRole]: this failure
+      // shows up only as "the caregiver dashboard didn't open".
+      debugPrint('Caregiver promotion failed: $e');
+      return current;
+    }
+
+    return AuthState(
+      status: AuthStatus.authenticated,
+      user: user.copyWith(role: UserRole.caregiver),
+    );
+  }
+
   // ── Sign Out ──────────────────────────────────────────────────────────────
 
   Future<void> signOut() async {
+    // The next sign-in may be a different person on a different screen, so
+    // the hint must not outlive this session.
+    _signInRoleHint = null;
     await _repo.signOut();
     state = const AsyncData(
       AuthState(status: AuthStatus.unauthenticated),
@@ -248,7 +332,7 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<AuthState> _fromUserResult(
     Result<AuthUser> result, {
-    UserRole fallback = UserRole.patient,
+    UserRole? fallback,
   }) async {
     return result.when(
       success: (user) async {
@@ -294,12 +378,16 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// `pending_role` sign-up hint otherwise takes precedence.
   Future<AuthUser> _withResolvedRole(
     AuthUser user, {
-    UserRole fallback = UserRole.patient,
+    UserRole? fallback,
   }) async {
     final hint =
         supa.Supabase.instance.client.auth.currentUser?.userMetadata?['pending_role']
             as String?;
-    final defaultRole = hint == 'caregiver' ? UserRole.caregiver : fallback;
+    final defaultRole = resolveDefaultRole(
+      pendingRoleMetadata: hint,
+      callerHint: fallback,
+      sessionHint: _signInRoleHint,
+    );
     try {
       final role = await _profileRepo.ensureAndFetchRole(
         userId: user.id,
@@ -307,12 +395,40 @@ class AuthController extends AsyncNotifier<AuthState> {
         displayName: user.fullName,
       );
       return user.copyWith(role: role);
-    } catch (_) {
+    } catch (e) {
       // Network error resolving role — fall back to whatever the auth
       // layer already mapped rather than blocking sign-in entirely.
+      //
+      // Logged because the fallback is silent by design and lands the user
+      // on the patient shell: without this line, a caregiver on the wrong
+      // dashboard is indistinguishable from a caregiver whose role really
+      // is patient, which is a long afternoon to work out from the outside.
+      debugPrint('Role lookup failed ($e) — falling back to ${user.role}.');
       return user;
     }
   }
+}
+
+/// Which role seeds the `profiles` row for an account that has none yet.
+///
+/// Only ever a default: an account with a row keeps the role on it, so none
+/// of these hints can convert an existing account.
+///
+/// [pendingRoleMetadata] is the `pending_role` written into Supabase user
+/// metadata at sign-up, and outranks the rest because it survives an email
+/// confirmation that finished on another device. [callerHint] is the screen
+/// the caller came through. [sessionHint] is the screen *this session* signed
+/// in through, and is what the `onAuthStateChange` listener resolves against
+/// — it resolves the same sign-in concurrently and has no caller to ask, so
+/// without it a first-time caregiver races a patient row against their own
+/// caregiver one and lands on the patient dashboard for good.
+UserRole resolveDefaultRole({
+  String? pendingRoleMetadata,
+  UserRole? callerHint,
+  UserRole? sessionHint,
+}) {
+  if (pendingRoleMetadata == 'caregiver') return UserRole.caregiver;
+  return callerHint ?? sessionHint ?? UserRole.patient;
 }
 
 final authControllerProvider =

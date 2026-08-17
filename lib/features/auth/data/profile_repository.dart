@@ -55,10 +55,38 @@ class ProfileRepository {
           'display_name': displayName,
       });
     } on PostgrestException catch (e) {
-      // Row created concurrently (e.g. duplicate auth event) — harmless.
+      // Row created concurrently (e.g. duplicate auth event). The row that
+      // won is the one the account actually has, and it need not hold the
+      // role we were about to write — so read it back rather than returning
+      // a role that was never stored. Reporting the unstored one is how a
+      // caregiver used to reach a caregiver dashboard on the sign-in itself
+      // and the patient one on every launch after.
       if (e.code != '23505') rethrow;
+      final winner = await _supabase
+          .from(_table)
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+      return _parseRole(winner?['role'] as String?);
     }
     return defaultRole;
+  }
+
+  /// Writes [role] onto [userId]'s own profile row.
+  ///
+  /// RLS confines this to the signed-in user's row, so this can only ever
+  /// change the role of the account holding the session — never anyone
+  /// else's. Callers are responsible for the *policy* question of whether
+  /// this account should be allowed to change its own role; see
+  /// [AuthController.claimCaregiverAccount], which is the only caller and
+  /// refuses an account that holds patient health data.
+  Future<void> setRole({
+    required String userId,
+    required UserRole role,
+  }) async {
+    await _supabase
+        .from(_table)
+        .update({'role': _roleString(role)}).eq('id', userId);
   }
 
   String _roleString(UserRole role) =>
