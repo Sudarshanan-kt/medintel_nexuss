@@ -7,6 +7,7 @@ import '../../auth/application/auth_controller.dart';
 import '../application/care_circle_controller.dart';
 import 'care_task_board.dart';
 import 'caregiver_theme.dart';
+import 'link_patient_sheet.dart';
 
 /// Home for someone looking after other people.
 ///
@@ -452,6 +453,14 @@ class _QuickActions extends ConsumerWidget {
       children: [
         Expanded(
           child: _ActionTile(
+            icon: Icons.person_add_alt_1_rounded,
+            label: 'Link patient',
+            onTap: () => showLinkPatientSheet(context),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ActionTile(
             icon: Icons.groups_rounded,
             label: 'Care circle',
             onTap: () => context.openScreen(Routes.careCircle),
@@ -666,12 +675,17 @@ class _NoPatientsCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Ask the person you look after to invite you from their '
-            'Care Circle. Their medicines and adherence will show up here.',
+            'Ask the person you look after to open Care Circle and share '
+            'their invite code. Their medicines and adherence will show up '
+            'here.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13.5, color: kMuted, height: 1.45),
           ),
           const SizedBox(height: 18),
+          // Entering the code is the primary way out of this empty state —
+          // it is the thing that turns an empty dashboard into a populated
+          // one. "Manage Care Circle" stays, demoted, because it does not
+          // link anybody by itself.
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -682,10 +696,21 @@ class _NoPatientsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              onPressed: () => showLinkPatientSheet(context),
+              child: const Text(
+                'Enter an invite code',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
               onPressed: () => context.backOr(Routes.careCircle),
               child: const Text(
                 'Manage Care Circle',
-                style: TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(fontWeight: FontWeight.w700, color: kViolet),
               ),
             ),
           ),

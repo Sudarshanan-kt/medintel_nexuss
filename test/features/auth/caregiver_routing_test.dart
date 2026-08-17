@@ -15,6 +15,13 @@ void main() {
     Routes.profile,
   };
 
+  // Mirrors _caregiverRoutePrefixes — matched by prefix, so they carry a
+  // path parameter.
+  const caregiverAllowedPrefixes = {
+    Routes.caregiverPatient,
+    Routes.inviteAccept,
+  };
+
   const patientOnly = [
     Routes.home,
     Routes.scan,
@@ -44,6 +51,21 @@ void main() {
 
     test('the caregiver home is not reachable by a patient', () {
       expect(patientOnly.contains(Routes.caregiverHome), isFalse);
+    });
+
+    test('a caregiver can redeem an invite', () {
+      // Redeeming is how a caregiver acquires a patient at all. Leaving it
+      // out made the role a dead end: the invite deep link hit the guard
+      // and bounced back to an empty dashboard.
+      expect(caregiverAllowedPrefixes, contains(Routes.inviteAccept));
+    });
+
+    test('the invite screen carries a code, so it is matched by prefix', () {
+      // An exact-match entry would never fire — the real location always
+      // has the code appended.
+      expect(Routes.inviteAcceptCode('A1B2C3').startsWith(Routes.inviteAccept),
+          isTrue,);
+      expect(caregiverAllowed.contains(Routes.inviteAccept), isFalse);
     });
   });
 

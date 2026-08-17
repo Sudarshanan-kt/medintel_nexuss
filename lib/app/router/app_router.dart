@@ -264,6 +264,12 @@ const Set<String> _caregiverRoutes = {
 /// `/profile-of-someone-else` through on the strength of `/profile`.
 const List<String> _caregiverRoutePrefixes = [
   Routes.caregiverPatient,
+  // Redeeming an invite is how a caregiver acquires a patient at all, so
+  // shutting them out of it made the role a dead end: the deep link landed
+  // on the guard and bounced straight back to an empty dashboard. The screen
+  // shows only what the code itself unlocks — the invite's own patient name
+  // — and an unknown code shows nothing.
+  Routes.inviteAccept,
 ];
 
 bool _isCaregiverRoute(String loc) =>
