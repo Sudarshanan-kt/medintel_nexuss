@@ -1,5 +1,6 @@
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -47,7 +48,35 @@ async def lifespan(app: FastAPI):
             "they can be retried from the app.",
             interrupted,
         )
-    yield
+
+    warm_task = None
+    if settings.llm_warm_interval_seconds > 0:
+        warm_task = asyncio.create_task(_keep_model_warm())
+
+    try:
+        yield
+    finally:
+        if warm_task is not None:
+            warm_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await warm_task
+
+
+async def _keep_model_warm() -> None:
+    """Holds the model in memory for as long as this process runs.
+
+    Ollama unloads an idle model, and the reload costs seconds the app has
+    no way to distinguish from being broken — the LLM-backed features
+    degrade quietly by design, so a slow first call and a dead server look
+    identical from the phone. Paying that cost here, on a timer, means the
+    user never pays it.
+
+    Runs on startup as well as on the interval, so the model is resident
+    before the first scan rather than after it.
+    """
+    while True:
+        await llm.warm()
+        await asyncio.sleep(settings.llm_warm_interval_seconds)
 
 
 app = FastAPI(title="MedIntel Nexus API", version="0.1.0", lifespan=lifespan)

@@ -54,6 +54,17 @@ class Settings(BaseSettings):
     # structured response, where a hosted 70B took two. Everything calling
     # into it is already asynchronous and polled.
     llm_timeout_seconds: float = 180.0
+    # How long Ollama should hold the model in memory after a request, and
+    # how often to re-ask. The interval has to be shorter than the hold, or
+    # the model unloads in the gap and the next real request pays the
+    # reload; 4 minutes against 30 leaves plenty of overlap. Set
+    # llm_warm_interval_seconds to 0 to switch pre-loading off entirely, on
+    # a machine where 4.6GB of resident model is not a fair trade.
+    llm_keep_alive: str = "30m"
+    llm_warm_interval_seconds: float = 240.0
+    # A cold load of a 7B model reads several GB off disk. This bounds the
+    # warm-up call only — never a user-facing request.
+    llm_warm_timeout_seconds: float = 300.0
 
 
 settings = Settings()

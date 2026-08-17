@@ -158,8 +158,83 @@ def _strip_code_fence(content: str) -> str:
 
 
 async def health() -> bool:
-    """Whether the local model is loaded and answering. Used by /health so a
-    misconfigured setup is obvious before a scan silently fails."""
-    return await chat(
-        [{"role": "user", "content": "ok"}], max_tokens=1, timeout=10
-    ) is not None
+    """Whether the local model server is up and holds the configured model.
+
+    This used to run a one-token generation with a 10s timeout, which made
+    the check lie in the most annoying way possible. Ollama unloads a model
+    after a few idle minutes, and reloading 4.6GB takes far longer than ten
+    seconds — so the probe timed out and the app announced "the AI model is
+    not running" about a model that was fine and merely asleep. Whether it
+    answers *right now* was never the useful question; whether it is there
+    to answer is.
+
+    Asking the model list instead is immediate, cannot be defeated by a cold
+    load, and still catches the two failures worth catching: the server
+    being down, and the model never having been pulled. Latency of an
+    actual first request is handled where it belongs — by
+    `llm_timeout_seconds` on the request itself, and by `warm()` keeping the
+    model resident.
+    """
+    url = f"{settings.llm_base_url.rstrip('/')}/models"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            res = await client.get(url, headers=_headers())
+    except Exception:
+        logger.error(
+            "Local LLM server is not reachable at %s. Start it with "
+            "`ollama serve`.",
+            settings.llm_base_url,
+        )
+        return False
+
+    if res.status_code >= 400:
+        logger.error("Local LLM model list returned %s", res.status_code)
+        return False
+
+    try:
+        ids = {m.get("id") for m in res.json().get("data", [])}
+    except Exception:
+        logger.exception("Local LLM returned an unexpected model list")
+        return False
+
+    # Ollama reports "qwen2.5:7b-instruct"; a server that tags differently
+    # (":latest" appended, say) still counts as holding the model.
+    wanted = settings.llm_model
+    if any(i == wanted or i.startswith(f"{wanted}:") for i in ids if i):
+        return True
+
+    logger.error(_MODEL_MISSING_HINT, wanted, wanted)
+    return False
+
+
+async def warm() -> None:
+    """Asks the server to load the model and hold it in memory.
+
+    Ollama unloads after ~5 idle minutes, so the first request after a quiet
+    spell pays a multi-second reload — which during a demo reads as the app
+    hanging, or as the model being down. A periodic call with a keep_alive
+    longer than the gap between calls keeps it resident.
+
+    Ollama's own `/api/generate` carries `keep_alive`; the OpenAI-compatible
+    surface this module otherwise speaks does not, so this reaches past it
+    to the native endpoint and simply does nothing when pointed at a server
+    that has no such route. Failure is never surfaced: a model that will not
+    pre-load still works, just slowly, and `health()` reports the real state
+    either way.
+    """
+    base = settings.llm_base_url.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[: -len("/v1")]
+    try:
+        async with httpx.AsyncClient(timeout=settings.llm_warm_timeout_seconds) as c:
+            await c.post(
+                f"{base}/api/generate",
+                json={
+                    "model": settings.llm_model,
+                    "prompt": "ok",
+                    "stream": False,
+                    "keep_alive": settings.llm_keep_alive,
+                },
+            )
+    except Exception:
+        logger.debug("Model warm-up did not complete", exc_info=True)
