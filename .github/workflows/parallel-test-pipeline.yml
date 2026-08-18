@@ -98,7 +98,7 @@ jobs:
             automation/reports/JSON/results_*.json
             automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30
 
   # ===========================================================================
   # Domain Test 2: Appium Mobile Tests (300 cases)
@@ -156,7 +156,7 @@ jobs:
             automation/reports/JSON/results_*.json
             automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30
 
   # ===========================================================================
   # Domain Test 3: Unit Tests (300 cases + Standard Tests)
@@ -221,7 +221,7 @@ jobs:
             automation/reports/JSON/results_*.json
             automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30
 
   # ===========================================================================
   # Domain Test 4: Load Tests (300 cases)
@@ -274,7 +274,7 @@ jobs:
             automation/reports/JSON/results_*.json
             automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30
 
   # ===========================================================================
   # Domain Test 5: Security Tests (300 cases)
@@ -328,7 +328,7 @@ jobs:
             automation/reports/JSON/results_*.json
             automation/reports/JSON/results_*.xlsx
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30
 
   # ===========================================================================
   # Quality Reporting
