@@ -7,6 +7,9 @@ import '../../../app/router/route_names.dart';
 import '../application/reports_controller.dart';
 import '../data/health_advice.dart';
 import '../domain/medical_report.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/extensions.dart';
+import '../../../core/utils/page_insets.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Crash-proof report viewer.
@@ -86,7 +89,7 @@ class ReportViewerScreen extends ConsumerWidget {
       body: found == null
           ? _buildNotFound()
           : isAnalysing
-              ? _buildLoading(found)
+              ? _buildLoading(context, found)
               : _buildContent(context, ref, found),
     );
   }
@@ -188,8 +191,14 @@ class ReportViewerScreen extends ConsumerWidget {
         ),
       );
 
-  Widget _buildLoading(MedicalReport report) => ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+  Widget _buildLoading(BuildContext context, MedicalReport report) => ListView(
+        padding: pageInsets(
+          context.width,
+          top: 12,
+          bottom: 120,
+          gutter: 16,
+          maxContent: ContentWidth.narrow,
+        ),
         children: [
           _card(
             Column(
@@ -240,7 +249,13 @@ class ReportViewerScreen extends ConsumerWidget {
     MedicalReport report,
   ) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      padding: pageInsets(
+        context.width,
+        top: 12,
+        bottom: 120,
+        gutter: 16,
+        maxContent: ContentWidth.narrow,
+      ),
       children: [
         // ── Header card ──────────────────────────────────────────────────
         _card(

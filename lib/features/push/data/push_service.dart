@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/notification_api.dart';
+
 /// Thin wrapper around Firebase Cloud Messaging: permission request, token
 /// retrieval, and displaying a local notification for foreground messages
 /// (FCM does not auto-display a system notification while the app is in
@@ -80,7 +82,14 @@ class PushService {
       FirebaseMessaging.onMessage.listen((message) async {
         final title = message.notification?.title ?? 'MedIntel Nexus';
         final body = message.notification?.body ?? '';
-        if (kIsWeb) return; // Browser notification API path not wired yet.
+        // flutter_local_notifications has no web implementation, so a push
+        // that arrived with the tab open used to be dropped on the floor —
+        // the alert was delivered to the browser and then never shown. The
+        // Notifications API covers exactly this foreground case.
+        if (kIsWeb) {
+          showDeviceNotification(title, body);
+          return;
+        }
         await _ensureLocalInitialized();
         await _local.show(
           message.hashCode,

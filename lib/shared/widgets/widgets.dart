@@ -16,6 +16,7 @@ export 'gradient_scaffold.dart';
 export 'insight_card.dart';
 export 'medical_motif_backdrop.dart';
 export 'medicine_card.dart';
+export 'page_container.dart';
 export 'primary_button.dart';
 export 'quick_action_tile.dart';
 export 'risk_badge.dart';

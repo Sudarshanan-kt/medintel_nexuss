@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
+
+import '../../../core/services/media_bytes.dart';
+import 'barcode_reader.dart';
 
 /// What a scanned code turned out to contain.
 enum BarcodeSource {
@@ -70,6 +74,8 @@ class MedicineBarcodeScanner {
   /// unremarkable outcome (blur, glare, no code on the pack) that should
   /// fall through to OCR or manual entry rather than read as an error.
   Future<BarcodeScanResult?> scan(String imagePath) async {
+    if (kIsWeb) return _scanWeb(imagePath);
+
     final scanner = BarcodeScanner();
     try {
       final barcodes = await scanner.processImage(
@@ -77,16 +83,9 @@ class MedicineBarcodeScanner {
       );
       if (barcodes.isEmpty) return null;
 
-      // Prefer whichever code carries the most information: a QR with the
-      // drug's details beats a bare retail number printed alongside it.
-      BarcodeScanResult? best;
-      for (final barcode in barcodes) {
-        final value = barcode.rawValue?.trim();
-        if (value == null || value.isEmpty) continue;
-        final parsed = parsePayload(value);
-        if (best == null || _rank(parsed) > _rank(best)) best = parsed;
-      }
-      return best;
+      return bestOf([
+        for (final barcode in barcodes) barcode.rawValue ?? '',
+      ]);
     } catch (e) {
       dev.log(
         'MedicineBarcodeScanner.scan failed: $e',
@@ -96,6 +95,38 @@ class MedicineBarcodeScanner {
     } finally {
       await scanner.close();
     }
+  }
+
+  /// The web path: ML Kit has no web build, so the codes come from the
+  /// browser's own Barcode Detection API. Everything after that — parsing
+  /// and ranking — is the shared code below.
+  Future<BarcodeScanResult?> _scanWeb(String imagePath) async {
+    try {
+      final bytes = await MediaBytes.read(imagePath);
+      if (bytes == null || bytes.isEmpty) return null;
+      return bestOf(await readBarcodes(bytes));
+    } catch (e) {
+      dev.log(
+        'MedicineBarcodeScanner._scanWeb failed: $e',
+        name: 'reminders.barcode',
+      );
+      return null;
+    }
+  }
+
+  /// Picks the most informative of the codes found on one pack: a QR
+  /// carrying the drug's details beats a bare retail number printed
+  /// alongside it. Shared by both platforms' scan paths, and exposed for
+  /// testing.
+  BarcodeScanResult? bestOf(List<String> rawValues) {
+    BarcodeScanResult? best;
+    for (final raw in rawValues) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      final parsed = parsePayload(value);
+      if (best == null || _rank(parsed) > _rank(best)) best = parsed;
+    }
+    return best;
   }
 
   int _rank(BarcodeScanResult r) => switch (r.source) {

@@ -914,12 +914,21 @@ class _MedicineReminderScreenState
         return;
       }
 
+      // Distinguish "the photo didn't read" from "this platform can't read
+      // photos at all". In a browser there is no OCR, so advising a better
+      // photo would send the patient round a loop that cannot succeed.
+      final canReadLabels =
+          ref.read(medicineLabelScannerProvider).isSupported;
+
       say(
-        barcode == null
-            ? "Couldn't read the label clearly — try a closer, well-lit "
-                'photo, or type it in.'
-            : "New pack, and the name wasn't readable. Type it once and "
-                "I'll remember this barcode.",
+        switch ((barcode != null, canReadLabels)) {
+          (true, _) => "New pack, and the name wasn't readable. Type it once "
+              "and I'll remember this barcode.",
+          (false, true) => "Couldn't read the label clearly — try a closer, "
+              'well-lit photo, or type it in.',
+          (false, false) => 'No code on this pack, and reading the printed '
+              'name needs the app. Type the name in.',
+        },
       );
     } finally {
       setScanning(false);

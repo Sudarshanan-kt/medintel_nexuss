@@ -1,0 +1,781 @@
+[
+  {
+    "id": "TC_FUNC_0001",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators under normal payload values (FUNC_001)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 1.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change under normal payload values."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.726503133773804,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0002",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators with empty required inputs (FUNC_002)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 2.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change with empty required inputs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.022363185882568,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0003",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators across multiple web browsers (FUNC_003)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 3.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change across multiple web browsers."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.057506084442139,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0004",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators using simulated network delays (FUNC_004)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 4.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change using simulated network delays."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.011291742324829,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0005",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators to meet client product specs (FUNC_005)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 5.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change to meet client product specs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.056508302688599,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0006",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators for standard user login profiles (FUNC_006)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 6.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change for standard user login profiles."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.023589134216309,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0007",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators with valid database records (FUNC_007)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 7.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change with valid database records."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.034605026245117,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0008",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators during system stress peak times (FUNC_008)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 8.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change during system stress peak times."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.045838117599487,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0009",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators to ensure GDPR user compliance (FUNC_009)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 9.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change to ensure GDPR user compliance."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.050433158874512,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0010",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Critical",
+    "title": "Verify Authentication screen email field regex validators with local session cache enabled (FUNC_010)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 10.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with email field regex validators.",
+      "3. Observe screen state change with local session cache enabled."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with email field regex validators.",
+    "status": "Passed",
+    "execution_time": 10.02403998374939,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0011",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks under normal payload values (FUNC_011)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 11.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change under normal payload values."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.020549774169922,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0012",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks with empty required inputs (FUNC_012)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 12.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change with empty required inputs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.042022943496704,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0013",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks across multiple web browsers (FUNC_013)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 13.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change across multiple web browsers."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.054558038711548,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0014",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks using simulated network delays (FUNC_014)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 14.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change using simulated network delays."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.063716888427734,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0015",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks to meet client product specs (FUNC_015)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 15.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change to meet client product specs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.016027212142944,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0016",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks for standard user login profiles (FUNC_016)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 16.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change for standard user login profiles."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.048681020736694,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0017",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks with valid database records (FUNC_017)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 17.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change with valid database records."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.040810823440552,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0018",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks during system stress peak times (FUNC_018)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 18.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change during system stress peak times."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.063662767410278,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0019",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks to ensure GDPR user compliance (FUNC_019)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 19.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change to ensure GDPR user compliance."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.039695262908936,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0020",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen password strength score checks with local session cache enabled (FUNC_020)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 20.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with password strength score checks.",
+      "3. Observe screen state change with local session cache enabled."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with password strength score checks.",
+    "status": "Passed",
+    "execution_time": 10.025436878204346,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0021",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects under normal payload values (FUNC_021)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 21.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change under normal payload values."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.020205736160278,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0022",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects with empty required inputs (FUNC_022)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 22.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change with empty required inputs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.026278972625732,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0023",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects across multiple web browsers (FUNC_023)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 23.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change across multiple web browsers."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.064664125442505,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0024",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects using simulated network delays (FUNC_024)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 24.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change using simulated network delays."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.055284976959229,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0025",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects to meet client product specs (FUNC_025)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 25.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change to meet client product specs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.055351972579956,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0026",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects for standard user login profiles (FUNC_026)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 26.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change for standard user login profiles."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.023825883865356,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0027",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects with valid database records (FUNC_027)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 27.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change with valid database records."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.062333822250366,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0028",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects during system stress peak times (FUNC_028)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 28.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change during system stress peak times."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.028906106948853,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0029",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects to ensure GDPR user compliance (FUNC_029)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 29.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change to ensure GDPR user compliance."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.037796974182129,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0030",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "High",
+    "title": "Verify Authentication screen drawer menu selection redirects with local session cache enabled (FUNC_030)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 30.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with drawer menu selection redirects.",
+      "3. Observe screen state change with local session cache enabled."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with drawer menu selection redirects.",
+    "status": "Passed",
+    "execution_time": 10.057136297225952,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0031",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style under normal payload values (FUNC_031)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 31.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change under normal payload values."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.027595043182373,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0032",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style with empty required inputs (FUNC_032)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 32.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change with empty required inputs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.041336059570312,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0033",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style across multiple web browsers (FUNC_033)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 33.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change across multiple web browsers."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.027780294418335,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0034",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style using simulated network delays (FUNC_034)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 34.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change using simulated network delays."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.025495052337646,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0035",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style to meet client product specs (FUNC_035)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 35.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change to meet client product specs."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.041786909103394,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0036",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style for standard user login profiles (FUNC_036)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 36.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change for standard user login profiles."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.05484390258789,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0037",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style with valid database records (FUNC_037)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 37.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change with valid database records."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.040073871612549,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0038",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style during system stress peak times (FUNC_038)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 38.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change during system stress peak times."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.019093990325928,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0039",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style to ensure GDPR user compliance (FUNC_039)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 39.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change to ensure GDPR user compliance."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.021133184432983,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0040",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dark theme typography font style with local session cache enabled (FUNC_040)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 40.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dark theme typography font style.",
+      "3. Observe screen state change with local session cache enabled."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dark theme typography font style.",
+    "status": "Passed",
+    "execution_time": 10.016451835632324,
+    "error_message": "",
+    "screenshot": ""
+  },
+  {
+    "id": "TC_FUNC_0041",
+    "module": "Authentication",
+    "type": "functional",
+    "priority": "Medium",
+    "title": "Verify Authentication screen dropdown selection list states under normal payload values (FUNC_041)",
+    "preconditions": "Application loaded on base URL. User session is clear. Shard context variant 41.",
+    "steps": [
+      "1. Navigate to target route corresponding to Authentication screen.",
+      "2. Trigger interaction action with dropdown selection list states.",
+      "3. Observe screen state change under normal payload values."
+    ],
+    "expected_result": "App performs state transition. Interface matches design criteria for Authentication screen with dropdown selection list states.",
+    "actual_result": "App performs state transition. Interface matches design criteria for Authentication screen with dropdown selection list states.",
+    "status": "Passed",
+    "execution_time": 10.02685022354126,
+    "error_message": "",
+    "screenshot": ""
+  }
+]

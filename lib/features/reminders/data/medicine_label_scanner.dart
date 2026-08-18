@@ -1,5 +1,6 @@
 import 'dart:developer' as dev;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -27,10 +28,20 @@ class MedicineLabelScanResult {
 /// This is a best-effort heuristic, not a guarantee — the result always
 /// populates an editable form field rather than being trusted outright.
 class MedicineLabelScanner {
+  /// Whether label OCR can run at all on this platform.
+  ///
+  /// False on web: ML Kit is Android/iOS only and a browser has no OCR API
+  /// of its own, so there is nothing to fall back to. Callers should use
+  /// this to say so, rather than reporting an unreadable photo — the advice
+  /// "try a closer, better-lit photo" is wrong when no photo would work.
+  bool get isSupported => !kIsWeb;
+
   /// Scans [imagePath] and returns a best guess, or null if no usable text
   /// was found. Never throws — OCR failures are common (blur, glare, bad
   /// angle) and should just fall through to manual entry.
   Future<MedicineLabelScanResult?> scan(String imagePath) async {
+    if (!isSupported) return null;
+
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       final input = InputImage.fromFilePath(imagePath);

@@ -110,6 +110,7 @@ class _GoogleWebButtonState extends State<_GoogleWebButton> {
           type: gis.ButtonType.icon,
           shape: gis.ButtonShape.pill,
           theme: gis.ButtonTheme.outline,
+          size: _gisSizeFor(widget.size),
         );
       case GoogleWebButtonStyle.fullWidthStandard:
         return gis.GsiButtonConfiguration(
@@ -150,6 +151,19 @@ class _GoogleWebButtonState extends State<_GoogleWebButton> {
       },
     );
   }
+}
+
+/// Picks the largest of Google's fixed button sizes that still fits inside a
+/// [box]-pixel square.
+///
+/// Google renders at ~40/32/20px tall and does not scale to its container, so
+/// a button larger than the circle it is clipped to gets *cropped*, not shrunk
+/// — which is what the icon button was doing: the default (large, 40px) inside
+/// a 22px [ClipOval] showed one arc of the "G" and nothing else.
+gis.ButtonSize _gisSizeFor(double box) {
+  if (box >= 40) return gis.ButtonSize.large;
+  if (box >= 32) return gis.ButtonSize.medium;
+  return gis.ButtonSize.small;
 }
 
 /// Generates a cryptographically random raw nonce. [_hashNonce] of this same

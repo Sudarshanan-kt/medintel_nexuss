@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/extensions.dart';
+import '../../../core/utils/page_insets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -762,7 +765,7 @@ class _DialogueDisplay extends StatelessWidget {
     final assistant = _lastAssistant?.content ?? '';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+      padding: pageInsets(context.width, maxContent: ContentWidth.narrow),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
@@ -1315,11 +1318,10 @@ class _TextComposerState extends State<_TextComposer> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.gutter,
-        0,
-        AppSpacing.gutter,
-        AppSpacing.sm,
+      padding: pageInsets(
+        context.width,
+        bottom: AppSpacing.sm,
+        maxContent: ContentWidth.narrow,
       ),
       child: Row(
         children: [

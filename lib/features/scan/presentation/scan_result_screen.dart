@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/services/media_bytes.dart';
+import '../../../core/utils/extensions.dart';
+import '../../../core/utils/page_insets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -72,11 +74,10 @@ class ScanResultScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.gutter,
-          AppSpacing.md,
-          AppSpacing.gutter,
-          120,
+        padding: pageInsets(
+          context.width,
+          top: AppSpacing.md,
+          bottom: 120,
         ),
         children: [
           _CaptureImage(path: scan.imageRef, capturedAt: scan.capturedAt),

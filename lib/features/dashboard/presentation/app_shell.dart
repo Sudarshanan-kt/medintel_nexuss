@@ -74,9 +74,39 @@ class AppShell extends ConsumerWidget {
               onTap: _onTap,
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: navigationShell),
+            Expanded(child: _ContentArea(child: navigationShell)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Makes the content column report its own width to everything inside it.
+///
+/// Screens size their gutters off `MediaQuery`, which reports the *window*.
+/// Once the rail has taken its 240 logical pixels off the left, a screen
+/// sizing itself against the window is centring against the wrong box: the
+/// content lands left of centre and comes out wider than it was capped at.
+///
+/// Overriding the size here fixes every screen at once, and means no screen
+/// needs a `LayoutBuilder` of its own just to find out how much room it got.
+///
+/// Only the wide branch wraps this. On compact the window *is* the content
+/// area, so the phone app never sees the override.
+class _ContentArea extends StatelessWidget {
+  const _ContentArea({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          size: Size(constraints.maxWidth, constraints.maxHeight),
+        ),
+        child: child,
       ),
     );
   }

@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/page_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -147,7 +150,13 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
               SafeArea(
                 child: LayoutBuilder(
                   builder: (context, constraints) => SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+                    padding: pageInsets(
+                      constraints.maxWidth,
+                      top: 16,
+                      bottom: 16,
+                      gutter: 22,
+                      maxContent: ContentWidth.form,
+                    ),
                     child: ConstrainedBox(
                       // Fill the viewport (minus the padding above) so the
                       // column has room to centre itself; the slack then

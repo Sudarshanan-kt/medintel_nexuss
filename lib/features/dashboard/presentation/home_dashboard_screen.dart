@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../core/utils/page_insets.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/medical_motif_backdrop.dart';
@@ -116,7 +118,12 @@ class HomeDashboardScreen extends ConsumerWidget {
           SafeArea(
             bottom: false,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+              padding: pageInsets(
+                context.width,
+                top: 12,
+                bottom: 40,
+                maxContent: ContentWidth.wide,
+              ),
               physics: const BouncingScrollPhysics(),
               children: [
                 _Header(

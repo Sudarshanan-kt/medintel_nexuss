@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/alarm_service.dart';
 import 'data/medicines_repository.dart';
 import 'domain/medicine.dart';
-import 'notification_api.dart';
+import '../../core/services/notification_api.dart';
 
 /// Combined state containing medicines list and dose history logs.
 class MedicineManagerState {

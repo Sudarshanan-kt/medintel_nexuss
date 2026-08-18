@@ -4,6 +4,7 @@ import 'package:medintel_nexus/features/reminders/data/medicine_barcode_scanner.
 /// Payload parsing, which is where a barcode either yields a medicine name
 /// or honestly admits it doesn't carry one.
 void main() {
+  _bestOfTests();
   final scanner = MedicineBarcodeScanner();
 
   group('India DCGI QR payloads', () {
@@ -135,6 +136,48 @@ void main() {
 
       expect(result.rawValue, '08901234567890');
       expect(result.expiry, isNull);
+    });
+  });
+}
+
+void _bestOfTests() {
+  group('bestOf', () {
+    final scanner = MedicineBarcodeScanner();
+
+    test('prefers a code carrying the drug name over a bare retail number', () {
+      final result = scanner.bestOf([
+        '8901234567890',
+        '{"genericName":"Metformin","strength":"500mg"}',
+      ]);
+
+      expect(result, isNotNull);
+      expect(result!.name, 'Metformin');
+      expect(result.source, BarcodeSource.embedded);
+    });
+
+    test('order of the codes on the pack does not decide the winner', () {
+      final result = scanner.bestOf([
+        '{"genericName":"Metformin","strength":"500mg"}',
+        '8901234567890',
+      ]);
+
+      expect(result!.name, 'Metformin');
+    });
+
+    test('falls back to a plain code when nothing carries a name', () {
+      final result = scanner.bestOf(['8901234567890']);
+
+      expect(result, isNotNull);
+      expect(result!.hasName, isFalse);
+      expect(result.rawValue, '8901234567890');
+    });
+
+    test('skips blank payloads', () {
+      expect(scanner.bestOf(['', '   ']), isNull);
+    });
+
+    test('no codes at all is null, not an error', () {
+      expect(scanner.bestOf(const []), isNull);
     });
   });
 }

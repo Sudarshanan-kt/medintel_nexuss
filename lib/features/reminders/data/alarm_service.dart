@@ -9,6 +9,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/medicine.dart';
+import 'web_alarm_scheduler.dart';
 
 /// Production-grade exact alarm service using `flutter_local_notifications`.
 ///
@@ -25,6 +26,12 @@ class AlarmService {
   }
 
   final FlutterLocalNotificationsPlugin _np = FlutterLocalNotificationsPlugin();
+
+  /// Web has no alarm manager and no `flutter_local_notifications`, so alarms
+  /// there are page timers showing browser notifications. Only ever touched
+  /// when [kIsWeb]; see [WebAlarmScheduler] for what it can and cannot do.
+  final WebAlarmScheduler _web = WebAlarmScheduler();
+
   bool _initialized = false;
 
   void _log(String msg) => dev.log(msg, name: 'alarm.service');
@@ -65,7 +72,9 @@ class AlarmService {
 
   /// Requests post-notifications permission and Android 12+ exact alarm permissions.
   Future<bool> requestPermissions() async {
-    if (kIsWeb) return true;
+    // Was `return true` — claiming permission the browser had never been
+    // asked for, so every later notification was dropped silently.
+    if (kIsWeb) return _web.requestPermission();
     await _init();
 
     if (Platform.isAndroid) {
@@ -104,7 +113,6 @@ class AlarmService {
     required int hour,
     required int minute,
   }) async {
-    if (kIsWeb) return;
     await _init();
 
     if (med.isCompleted || !med.isActive) {
@@ -126,6 +134,20 @@ class AlarmService {
     // If the scheduled time for today has already passed, schedule for tomorrow
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    // Everything below drives flutter_local_notifications, which has no web
+    // implementation. The timezone conversion is part of that: `tz.local` is
+    // resolved for the device, and the browser path wants plain local time.
+    if (kIsWeb) {
+      _web.schedule(
+        alarmId,
+        at: scheduledDate,
+        title: '⏰ ${med.name} ($slot)',
+        body: 'Time for your dose. ${med.dosage}',
+        repeatDaily: true,
+      );
+      return;
     }
 
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
@@ -203,11 +225,20 @@ class AlarmService {
     required String slot,
     required int minutes,
   }) async {
-    if (kIsWeb) return;
     await _init();
 
     final snoozeAlarmId = (_generateAlarmId(med.id, slot) + 999) % 2147483647;
     final scheduledDate = DateTime.now().add(Duration(minutes: minutes));
+
+    if (kIsWeb) {
+      _web.schedule(
+        snoozeAlarmId,
+        at: scheduledDate,
+        title: '⏰ Snoozed: ${med.name} ($slot)',
+        body: 'Snoozed reminder due now. ${med.dosage}',
+      );
+      return;
+    }
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
 
     const androidDetails = AndroidNotificationDetails(
@@ -241,9 +272,13 @@ class AlarmService {
 
   /// Cancels a specific medicine slot alarm.
   Future<void> cancelMedicineAlarm(String medId, String slot) async {
-    if (kIsWeb) return;
-    await _init();
     final alarmId = _generateAlarmId(medId, slot);
+    if (kIsWeb) {
+      _web.cancel(alarmId);
+      _web.cancel((alarmId + 999) % 2147483647); // the snooze, if any
+      return;
+    }
+    await _init();
     await _np.cancel(alarmId);
     await _np.cancel((alarmId + 999) % 2147483647); // cancel snooze if any
     _log('Cancelled alarm id=$alarmId');
@@ -251,7 +286,6 @@ class AlarmService {
 
   /// Cancels all scheduled slot alarms for a medicine.
   Future<void> cancelAllForMedicine(Medicine med) async {
-    if (kIsWeb) return;
     await cancelMedicineAlarm(med.id, 'morning');
     await cancelMedicineAlarm(med.id, 'afternoon');
     await cancelMedicineAlarm(med.id, 'night');

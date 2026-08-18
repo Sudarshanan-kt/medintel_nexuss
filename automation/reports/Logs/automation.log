@@ -6842,3 +6842,117 @@
 2026-08-06 14:11:55,596 - INFO - [summary_generator.py:55] - Critical Failure Rate: 0.00% (Threshold: <= 5.00%)
 2026-08-06 14:11:55,596 - INFO - [summary_generator.py:56] - ========================================
 2026-08-06 14:11:55,596 - INFO - [summary_generator.py:73] - Test execution PASSED all SLA compliance checks.
+2026-08-18 12:44:39,969 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-18 12:44:42,893 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-18 12:44:42,894 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify Authentication screen email field regex validators under normal payload values (FUNC_001)
+2026-08-18 12:44:43,340 - WARNING - [scenario_runner.py:40] - SEVERE browser log detected: https://sudarshanan-kt.github.io/medintel_nexuss/ - Failed to load resource: the server responded with a status of 404 ()
+2026-08-18 12:44:53,342 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:44:53,343 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0002] [Authentication] - Verify Authentication screen email field regex validators with empty required inputs (FUNC_002)
+2026-08-18 12:45:03,385 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:03,387 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0003] [Authentication] - Verify Authentication screen email field regex validators across multiple web browsers (FUNC_003)
+2026-08-18 12:45:13,421 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:13,423 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0004] [Authentication] - Verify Authentication screen email field regex validators using simulated network delays (FUNC_004)
+2026-08-18 12:45:23,466 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:23,467 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0005] [Authentication] - Verify Authentication screen email field regex validators to meet client product specs (FUNC_005)
+2026-08-18 12:45:33,504 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:33,506 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0006] [Authentication] - Verify Authentication screen email field regex validators for standard user login profiles (FUNC_006)
+2026-08-18 12:45:43,527 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:43,529 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0007] [Authentication] - Verify Authentication screen email field regex validators with valid database records (FUNC_007)
+2026-08-18 12:45:53,598 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:45:53,600 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0008] [Authentication] - Verify Authentication screen email field regex validators during system stress peak times (FUNC_008)
+2026-08-18 12:46:03,620 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:03,623 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0009] [Authentication] - Verify Authentication screen email field regex validators to ensure GDPR user compliance (FUNC_009)
+2026-08-18 12:46:13,647 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:13,649 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0010] [Authentication] - Verify Authentication screen email field regex validators with local session cache enabled (FUNC_010)
+2026-08-18 12:46:23,688 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:23,690 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0011] [Authentication] - Verify Authentication screen password strength score checks under normal payload values (FUNC_011)
+2026-08-18 12:46:33,746 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:33,748 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0012] [Authentication] - Verify Authentication screen password strength score checks with empty required inputs (FUNC_012)
+2026-08-18 12:46:43,769 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:43,771 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0013] [Authentication] - Verify Authentication screen password strength score checks across multiple web browsers (FUNC_013)
+2026-08-18 12:46:53,807 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:46:53,809 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0014] [Authentication] - Verify Authentication screen password strength score checks using simulated network delays (FUNC_014)
+2026-08-18 12:47:03,867 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:03,869 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0015] [Authentication] - Verify Authentication screen password strength score checks to meet client product specs (FUNC_015)
+2026-08-18 12:47:13,917 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:13,919 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0016] [Authentication] - Verify Authentication screen password strength score checks for standard user login profiles (FUNC_016)
+2026-08-18 12:47:23,980 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:23,981 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0017] [Authentication] - Verify Authentication screen password strength score checks with valid database records (FUNC_017)
+2026-08-18 12:47:33,993 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:33,994 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0018] [Authentication] - Verify Authentication screen password strength score checks during system stress peak times (FUNC_018)
+2026-08-18 12:47:44,064 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:44,066 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0019] [Authentication] - Verify Authentication screen password strength score checks to ensure GDPR user compliance (FUNC_019)
+2026-08-18 12:47:54,094 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:47:54,096 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0020] [Authentication] - Verify Authentication screen password strength score checks with local session cache enabled (FUNC_020)
+2026-08-18 12:48:04,137 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:04,139 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0021] [Authentication] - Verify Authentication screen drawer menu selection redirects under normal payload values (FUNC_021)
+2026-08-18 12:48:14,177 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:14,179 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0022] [Authentication] - Verify Authentication screen drawer menu selection redirects with empty required inputs (FUNC_022)
+2026-08-18 12:48:24,203 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:24,206 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0023] [Authentication] - Verify Authentication screen drawer menu selection redirects across multiple web browsers (FUNC_023)
+2026-08-18 12:48:34,274 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:34,276 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0024] [Authentication] - Verify Authentication screen drawer menu selection redirects using simulated network delays (FUNC_024)
+2026-08-18 12:48:44,292 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:44,294 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0025] [Authentication] - Verify Authentication screen drawer menu selection redirects to meet client product specs (FUNC_025)
+2026-08-18 12:48:54,339 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:48:54,341 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0026] [Authentication] - Verify Authentication screen drawer menu selection redirects for standard user login profiles (FUNC_026)
+2026-08-18 12:49:04,405 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:04,407 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0027] [Authentication] - Verify Authentication screen drawer menu selection redirects with valid database records (FUNC_027)
+2026-08-18 12:49:14,433 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:14,434 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0028] [Authentication] - Verify Authentication screen drawer menu selection redirects during system stress peak times (FUNC_028)
+2026-08-18 12:49:24,485 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:24,487 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0029] [Authentication] - Verify Authentication screen drawer menu selection redirects to ensure GDPR user compliance (FUNC_029)
+2026-08-18 12:49:34,519 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:34,521 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0030] [Authentication] - Verify Authentication screen drawer menu selection redirects with local session cache enabled (FUNC_030)
+2026-08-18 12:49:44,550 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:44,552 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0031] [Authentication] - Verify Authentication screen dark theme typography font style under normal payload values (FUNC_031)
+2026-08-18 12:49:54,599 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:49:54,602 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0032] [Authentication] - Verify Authentication screen dark theme typography font style with empty required inputs (FUNC_032)
+2026-08-18 12:50:04,637 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:04,638 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0033] [Authentication] - Verify Authentication screen dark theme typography font style across multiple web browsers (FUNC_033)
+2026-08-18 12:50:14,676 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:14,677 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0034] [Authentication] - Verify Authentication screen dark theme typography font style using simulated network delays (FUNC_034)
+2026-08-18 12:50:24,758 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:24,760 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0035] [Authentication] - Verify Authentication screen dark theme typography font style to meet client product specs (FUNC_035)
+2026-08-18 12:50:34,800 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:34,802 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0036] [Authentication] - Verify Authentication screen dark theme typography font style for standard user login profiles (FUNC_036)
+2026-08-18 12:50:44,851 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:44,852 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0037] [Authentication] - Verify Authentication screen dark theme typography font style with valid database records (FUNC_037)
+2026-08-18 12:50:54,872 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:50:54,873 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0038] [Authentication] - Verify Authentication screen dark theme typography font style during system stress peak times (FUNC_038)
+2026-08-18 12:51:17,011 - INFO - [driver_factory.py:10] - Initializing Chrome WebDriver with enterprise options...
+2026-08-18 12:51:18,175 - INFO - [driver_factory.py:32] - Chrome WebDriver initialized successfully.
+2026-08-18 12:51:18,175 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0001] [Authentication] - Verify Authentication screen email field regex validators under normal payload values (FUNC_001)
+2026-08-18 12:51:18,374 - WARNING - [scenario_runner.py:40] - SEVERE browser log detected: https://sudarshanan-kt.github.io/medintel_nexuss/ - Failed to load resource: the server responded with a status of 404 ()
+2026-08-18 12:51:28,424 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:51:28,427 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0002] [Authentication] - Verify Authentication screen email field regex validators with empty required inputs (FUNC_002)
+2026-08-18 12:51:38,461 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:51:38,463 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0003] [Authentication] - Verify Authentication screen email field regex validators across multiple web browsers (FUNC_003)
+2026-08-18 12:51:48,497 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:51:48,498 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0004] [Authentication] - Verify Authentication screen email field regex validators using simulated network delays (FUNC_004)
+2026-08-18 12:51:58,564 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:51:58,565 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0005] [Authentication] - Verify Authentication screen email field regex validators to meet client product specs (FUNC_005)
+2026-08-18 12:52:08,626 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:08,628 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0006] [Authentication] - Verify Authentication screen email field regex validators for standard user login profiles (FUNC_006)
+2026-08-18 12:52:18,692 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:18,693 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0007] [Authentication] - Verify Authentication screen email field regex validators with valid database records (FUNC_007)
+2026-08-18 12:52:28,744 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:28,745 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0008] [Authentication] - Verify Authentication screen email field regex validators during system stress peak times (FUNC_008)
+2026-08-18 12:52:38,771 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:38,773 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0009] [Authentication] - Verify Authentication screen email field regex validators to ensure GDPR user compliance (FUNC_009)
+2026-08-18 12:52:48,793 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:48,794 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0010] [Authentication] - Verify Authentication screen email field regex validators with local session cache enabled (FUNC_010)
+2026-08-18 12:52:58,844 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:52:58,845 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0011] [Authentication] - Verify Authentication screen password strength score checks under normal payload values (FUNC_011)
+2026-08-18 12:53:08,904 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:08,907 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0012] [Authentication] - Verify Authentication screen password strength score checks with empty required inputs (FUNC_012)
+2026-08-18 12:53:18,978 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:18,980 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0013] [Authentication] - Verify Authentication screen password strength score checks across multiple web browsers (FUNC_013)
+2026-08-18 12:53:29,025 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:29,027 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0014] [Authentication] - Verify Authentication screen password strength score checks using simulated network delays (FUNC_014)
+2026-08-18 12:53:39,098 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:39,100 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0015] [Authentication] - Verify Authentication screen password strength score checks to meet client product specs (FUNC_015)
+2026-08-18 12:53:49,134 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:49,136 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0016] [Authentication] - Verify Authentication screen password strength score checks for standard user login profiles (FUNC_016)
+2026-08-18 12:53:59,197 - INFO - [scenario_runner.py:44] - Found 0 input fields on the screen.
+2026-08-18 12:53:59,199 - INFO - [scenario_runner.py:130] - Starting test case: [TC_FUNC_0017] [Authentication] - Verify Authentication screen password strength score checks with valid database records (FUNC_017)

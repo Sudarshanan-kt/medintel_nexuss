@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class ApiError(Exception):
@@ -36,6 +39,10 @@ async def validation_error_handler(
 
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    # The client is deliberately told nothing useful, so the traceback has to
+    # go somewhere or a 500 is unattributable — which is exactly how a broken
+    # reference-range parse looked identical to "the backend is down".
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=500, content=_error_body("Something went wrong on our end.")
     )

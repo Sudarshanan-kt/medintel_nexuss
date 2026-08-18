@@ -1,4 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/extensions.dart';
+import '../../../core/utils/page_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -128,7 +132,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+          padding: pageInsets(context.width, maxContent: ContentWidth.form),
           child: Form(
             key: _formKey,
             child: Column(

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -324,13 +325,41 @@ async def _process_report(report_id: str, image_path: str) -> None:
         record.status = "failed"
 
 
+_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _to_number(raw) -> Optional[float]:
+    """Best-effort float from whatever the model put in a numeric field.
+
+    The model is asked for numbers and mostly obliges, but reference ranges
+    are the exception: a report that prints "< 200" comes back as the string
+    ``"< 200"``, because that is what the bound genuinely is. Handing that
+    straight to ``MetricOut.ref_high: Optional[float]`` raises, and since one
+    ValidationError fails the whole response, a single cholesterol row used
+    to take down the entire analysis with a 500.
+
+    Extracting the first number is right for both directions: "< 200" is an
+    upper bound of 200 in ``ref_high``, "> 40" a lower bound of 40 in
+    ``ref_low``. Anything with no number in it at all becomes None — an
+    absent bound, which the field already allows.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, bool):  # bool is an int subclass; never a measurement
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    match = _NUMBER_RE.search(str(raw).replace(",", ""))
+    return float(match.group()) if match else None
+
+
 def _to_metric_out(raw: dict) -> dict:
     return {
         "label": str(raw.get("label") or "").strip(),
-        "value": raw.get("value"),
+        "value": _to_number(raw.get("value")),
         "unit": raw.get("unit"),
-        "ref_low": raw.get("ref_low"),
-        "ref_high": raw.get("ref_high"),
+        "ref_low": _to_number(raw.get("ref_low")),
+        "ref_high": _to_number(raw.get("ref_high")),
     }
 
 
