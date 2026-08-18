@@ -1,4 +1,3 @@
-import 'dart:io' show File;
 import 'dart:developer' as dev;
 import 'dart:typed_data';
 
@@ -13,6 +12,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
+import '../../../core/services/media_bytes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -104,6 +104,10 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
           return;
         }
         fileRef = picked.name;
+        // On web this name is the only reference we get, and nothing can
+        // re-derive the bytes from it — so hand them to MediaBytes, which is
+        // where the analysis pipeline looks for them.
+        MediaBytes.register(fileRef, bytes);
       } else {
         final path = picked.path;
         if (path == null) {
@@ -114,9 +118,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
           return;
         }
         fileRef = path;
-        try {
-          bytes ??= await File(path).readAsBytes();
-        } catch (_) {}
+        bytes ??= await MediaBytes.read(path);
       }
 
       // SHA256 of the PDF bytes for re-upload recognition.
@@ -175,6 +177,10 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
       try {
         final bytes = await file.readAsBytes();
         fileSha256 = sha256.convert(bytes).toString();
+        // A blob URL is re-readable until the browser revokes it, which can
+        // happen before a failed analysis is retried. The bytes are already
+        // in hand here, so keep them and make the retry independent of that.
+        if (kIsWeb) MediaBytes.register(file.path, bytes);
       } catch (_) {}
 
       ref.read(reportsControllerProvider.notifier).addUpload(

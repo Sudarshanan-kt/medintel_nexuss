@@ -8,6 +8,7 @@ class PrescriptionScan {
     required this.id,
     required this.imageRef,
     required this.status,
+    this.imageName,
     required this.medicines,
     this.capturedAt,
     this.note,
@@ -19,7 +20,17 @@ class PrescriptionScan {
   });
 
   final String id;
+
+  /// How the capture is re-read: a filesystem path on mobile, a blob URL on
+  /// web. Resolved through `MediaBytes`, never as a `File`.
   final String imageRef;
+
+  /// The capturing picker's own name for the file, when it gave one.
+  ///
+  /// A blob URL carries no name or extension, so without this the backend
+  /// would be told every web capture is a JPEG.
+  final String? imageName;
+
   final ScanStatus status;
   final List<Medicine> medicines;
   final DateTime? capturedAt;
@@ -54,6 +65,7 @@ class PrescriptionScan {
 
   PrescriptionScan copyWith({
     String? imageRef,
+    String? imageName,
     ScanStatus? status,
     List<Medicine>? medicines,
     DateTime? capturedAt,
@@ -68,6 +80,7 @@ class PrescriptionScan {
       PrescriptionScan(
         id: id,
         imageRef: imageRef ?? this.imageRef,
+        imageName: imageName ?? this.imageName,
         status: status ?? this.status,
         medicines: medicines ?? this.medicines,
         capturedAt: capturedAt ?? this.capturedAt,

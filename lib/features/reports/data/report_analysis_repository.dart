@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/services/media_bytes.dart';
 import '../../../core/utils/result.dart';
 import '../domain/medical_report.dart';
 
@@ -61,20 +60,29 @@ class ReportAnalysisRepository {
   // ceiling would have cut that off just before it finished.
   static const int _maxPolls = 150;
 
+  /// Uploads the report at [imagePath] and runs the OCR pipeline over it.
+  ///
+  /// [imagePath] is whatever the picker handed back and is resolved through
+  /// [MediaBytes], not read as a file: on web `file_picker` returns a bare
+  /// file name with no path at all, and this used to try to open that name
+  /// as a file — which is why report analysis failed in a browser.
+  ///
+  /// [fileName] is the picker's own name for the file when there is one; it
+  /// decides the name and MIME type the backend is told.
   Future<Result<ReportAnalysisOutcome>> analyzeReport({
     required String imagePath,
+    String? fileName,
     void Function(String status)? onStatus,
   }) async {
     try {
-      final file = File(imagePath);
-      if (!file.existsSync()) {
+      final bytes = await MediaBytes.read(imagePath);
+      if (bytes == null || bytes.isEmpty) {
         return const ResultFailure(
           ValidationFailure('Captured image could not be read.'),
         );
       }
-      final bytes = await file.readAsBytes();
-      final fileName = imagePath.split('/').last;
-      final mimeType = _mimeFor(fileName);
+      final name = fileName ?? MediaBytes.nameFor(imagePath);
+      final mimeType = _mimeFor(name);
 
       onStatus?.call('uploading');
 
@@ -82,7 +90,7 @@ class ReportAnalysisRepository {
         await _dio.post<Map<String, dynamic>>(
           ApiEndpoints.reportUploads,
           data: {
-            'file_name': fileName,
+            'file_name': name,
             'mime_type': mimeType,
             'size_bytes': bytes.length,
           },

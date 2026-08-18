@@ -14,10 +14,14 @@ class ScansController extends Notifier<List<PrescriptionScan>> {
 
   /// Called by the scanner after a photo is captured. Creates the scan in a
   /// [ScanStatus.processing] state and kicks off the OCR pipeline.
-  PrescriptionScan addCapture(String imagePath) {
+  /// [imagePath] is the capturing picker's reference to the file (a path on
+  /// mobile, a blob URL on web) and [fileName] its own name for it, which is
+  /// the only place a web capture's real extension survives.
+  PrescriptionScan addCapture(String imagePath, {String? fileName}) {
     final scan = PrescriptionScan(
       id: 's_${DateTime.now().microsecondsSinceEpoch}',
       imageRef: imagePath,
+      imageName: fileName,
       status: ScanStatus.processing,
       medicines: const [],
       capturedAt: DateTime.now(),
@@ -42,6 +46,7 @@ class ScansController extends Notifier<List<PrescriptionScan>> {
 
     final result = await ref.read(scanRepositoryProvider).processPrescription(
           imagePath: scan.imageRef,
+          fileName: scan.imageName,
           capturedAt: scan.capturedAt,
           note: scan.note,
         );

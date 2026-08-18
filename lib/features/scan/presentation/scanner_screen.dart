@@ -113,8 +113,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     if (c == null || !c.value.isInitialized) return;
     try {
       final file = await c.takePicture();
-      final scan =
-          ref.read(scansControllerProvider.notifier).addCapture(file.path);
+      final scan = ref
+          .read(scansControllerProvider.notifier)
+          .addCapture(file.path, fileName: file.name);
       if (mounted) context.openScreen(Routes.scanResultId(scan.id));
     } on CameraException catch (e) {
       debugPrint('Capture failed: ${e.code}');

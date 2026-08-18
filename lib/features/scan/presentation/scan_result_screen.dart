@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/router/navigation.dart';
 import '../../../app/router/route_names.dart';
+import '../../../core/services/media_bytes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -246,34 +247,59 @@ class ScanResultScreen extends ConsumerWidget {
 // Captured image
 // ─────────────────────────────────────────────────────────────────────────
 
-class _CaptureImage extends StatelessWidget {
+class _CaptureImage extends StatefulWidget {
   const _CaptureImage({required this.path, this.capturedAt});
   final String path;
   final DateTime? capturedAt;
 
   @override
+  State<_CaptureImage> createState() => _CaptureImageState();
+}
+
+class _CaptureImageState extends State<_CaptureImage> {
+  /// Held in state rather than started in `build`, because this widget's
+  /// parent rebuilds on every scan-state change — and OCR pushes several of
+  /// those through while it runs. Starting the read in `build` would re-read
+  /// the whole capture each time.
+  late Future<Uint8List?> _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = MediaBytes.read(widget.path);
+  }
+
+  @override
+  void didUpdateWidget(_CaptureImage old) {
+    super.didUpdateWidget(old);
+    if (old.path != widget.path) _bytes = MediaBytes.read(widget.path);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    Widget body;
-    final file = File(path);
-    if (file.existsSync()) {
-      body = Image.file(file, fit: BoxFit.cover);
-    } else {
-      body = Container(
-        color: AppColors.darkSurface,
-        alignment: Alignment.center,
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image_rounded, color: Colors.white24, size: 40),
-            SizedBox(height: 8),
-            Text(
-              'Image unavailable',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
+    // The capture is a filesystem path on mobile and a blob URL on web, so
+    // it is read through MediaBytes and decoded from memory rather than
+    // shown with Image.file, which only ever worked on the mobile half.
+    return _frame(
+      FutureBuilder<Uint8List?>(
+        future: _bytes,
+        builder: (context, snapshot) {
+          final bytes = snapshot.data;
+          if (bytes != null && bytes.isNotEmpty) {
+            return Image.memory(bytes, fit: BoxFit.cover);
+          }
+          // A blank surface while reading, so a slow read doesn't flash
+          // "Image unavailable" at a capture that is about to appear.
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Container(color: AppColors.darkSurface);
+          }
+          return const _CaptureUnavailable();
+        },
+      ),
+    );
+  }
+
+  Widget _frame(Widget body) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: AspectRatio(
@@ -282,7 +308,7 @@ class _CaptureImage extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             body,
-            if (capturedAt != null)
+            if (widget.capturedAt != null)
               Positioned(
                 left: 12,
                 top: 12,
@@ -296,7 +322,7 @@ class _CaptureImage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
-                    'Captured · ${DateFormat.jm().format(capturedAt!)}',
+                    'Captured · ${DateFormat.jm().format(widget.capturedAt!)}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -307,6 +333,29 @@ class _CaptureImage extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CaptureUnavailable extends StatelessWidget {
+  const _CaptureUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.darkSurface,
+      alignment: Alignment.center,
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_rounded, color: Colors.white24, size: 40),
+          SizedBox(height: 8),
+          Text(
+            'Image unavailable',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

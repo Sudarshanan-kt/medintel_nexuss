@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/services/media_bytes.dart';
 import '../../../core/utils/result.dart';
 import '../../../shared/widgets/risk_badge.dart';
 import '../domain/dosage_format.dart';
@@ -69,22 +68,32 @@ class ScanRepository {
   // working fine.
   static const int _maxPolls = 90;
 
+  /// Uploads the capture at [imagePath] and runs the OCR pipeline over it.
+  ///
+  /// [imagePath] is whatever the capturing picker handed back — a filesystem
+  /// path on mobile, a blob URL on web — and is resolved through [MediaBytes]
+  /// rather than read as a file, so the same call works on both.
+  ///
+  /// [fileName] is the picker's own name for the capture when there is one.
+  /// It only affects the name and MIME type the backend is told; a blob URL
+  /// carries neither, so without it a web capture would fall back to the
+  /// `image/jpeg` default and a picked PNG or PDF would be mislabelled.
   Future<Result<OcrOutcome>> processPrescription({
     required String imagePath,
+    String? fileName,
     DateTime? capturedAt,
     String? note,
     void Function(String status)? onStatus,
   }) async {
     try {
-      final file = File(imagePath);
-      if (!file.existsSync()) {
+      final bytes = await MediaBytes.read(imagePath);
+      if (bytes == null || bytes.isEmpty) {
         return const ResultFailure(
           ValidationFailure('Captured image could not be read.'),
         );
       }
-      final bytes = await file.readAsBytes();
-      final fileName = imagePath.split('/').last;
-      final mimeType = _mimeFor(fileName);
+      final name = fileName ?? MediaBytes.nameFor(imagePath);
+      final mimeType = _mimeFor(name);
 
       onStatus?.call('uploading');
 
@@ -93,7 +102,7 @@ class ScanRepository {
         await _dio.post<Map<String, dynamic>>(
           ApiEndpoints.prescriptionUploads,
           data: {
-            'file_name': fileName,
+            'file_name': name,
             'mime_type': mimeType,
             'size_bytes': bytes.length,
           },
